@@ -40,15 +40,12 @@ Follow the prompts in your browser to sign in. Once authenticated, Copilot will 
 
 *(Note: The `<leader>` key in this setup is mapped to the **Spacebar**)*
 
-### 1. File Creation & Auto-Jump Magic
-Whether you create a file manually or fetch one from the browser, the setup does the heavy lifting for you:
-- If you create **any** file inside the `~/cp/` directory, Neovim automatically populates it with your `cp_template.cpp`.
-- **Auto-Jump:** As soon as the file is created or opened, Neovim searches for the `void solve() {` block, automatically jumps your cursor inside it, and puts you into Insert Mode. You can just start typing your logic immediately!
-
-### 2. LeetCode Integration
-If you are doing LeetCode manually outside the `~/cp/` folder, we've got you covered:
-- Open any `.cpp` file and type `lcc`.
-- Your autocompletion will expand it into a fully minified, 1-line LeetCode helper template (containing all your fast I/O, macros, and math functions without cluttering the screen). You can immediately paste the `class Solution` right beneath it!
+### 1. File Creation & Snippets
+This setup gives you two extremely fast ways to generate your boilerplates anywhere:
+- **Full Template (`cp`):** Open any `.cpp` file and type `cp`. Your autocompletion will instantly expand into your massive 680-line Competitive Programming template. 
+- **LeetCode Template (`lcc`):** Open any `.cpp` file and type `lcc`. It will expand into a fully minified, 1-line LeetCode helper template (containing fast I/O and math helpers) without cluttering the screen so you can paste `class Solution` right beneath it.
+- **Auto-Injection (For CP):** If you create **any** file inside the `~/cp/` directory, Neovim automatically injects the full `cp_template.cpp`.
+- **Auto-Jump Magic:** As soon as the full template is inserted (manually or automatically), Neovim searches for the `void solve() {` block, automatically jumps your cursor inside it, and puts you into Insert Mode. You can just start typing your logic immediately!
 
 ### 3. Fetching a Problem
 - Open a terminal in your `~/cp/` directory and launch Neovim.
