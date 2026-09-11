@@ -1,0 +1,17 @@
+tt.*
+.tests
+doc/tags
+debug
+.repro
+foo.*
+*.log
+data
+
+# Standard Neovim ignores
+*~
+*.swp
+*.swo
+.netrwhist
+Session.vim
+Sessionx.vim
+*.shada
