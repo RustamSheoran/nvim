@@ -27,7 +27,18 @@ git clone git@github.com:RustamSheoran/nvim.git ~/.config/nvim
 nvim
 ```
 
+### GitHub Copilot Authentication
+This setup uses **GitHub Copilot** to provide AI-powered ghost text and code suggestions. On a fresh install, you **must** authenticate Copilot for the suggestions to start working.
+
+After opening Neovim, run the following command in normal mode:
+```vim
+:Copilot auth
+```
+Follow the prompts in your browser to sign in. Once authenticated, Copilot will start providing ghost text suggestions automatically as you type.
+
 ## The Workflow
+
+*(Note: The `<leader>` key in this setup is mapped to the **Spacebar**)*
 
 ### 1. Fetching a Problem
 - Open a terminal in your `~/cp/` directory and launch Neovim.
