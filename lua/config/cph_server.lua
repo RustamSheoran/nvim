@@ -162,7 +162,7 @@ end
 function M.submit(url, filepath)
   vim.notify("Checking compilation...", vim.log.levels.INFO)
   
-  vim.system({"g++", "-std=c++20", "-fsyntax-only", filepath}, { text = true }, function(obj)
+  vim.system({"clang++", "-std=c++23", "-fsyntax-only", filepath}, { text = true }, function(obj)
     if obj.code ~= 0 then
       vim.schedule(function()
         vim.notify("=== COMPILATION FAILED: SUBMISSION ABORTED ===\n" .. obj.stderr, vim.log.levels.ERROR)
