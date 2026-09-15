@@ -1,6 +1,36 @@
 {
-  "My C++ Template": {
+  "Default CP Template": {
     "prefix": "cp",
+    "body": [
+      "#include <bits/stdc++.h>",
+      "using namespace std;",
+      "",
+      "using ll = long long;",
+      "using vi = vector<int>;",
+      "using vll = vector<ll>;",
+      "",
+      "#define all(x) (x).begin(), (x).end()",
+      "",
+      "const ll INF = 1e18;",
+      "const int MOD = 1e9 + 7;",
+      "",
+      "void solve() {",
+      "    $0",
+      "}",
+      "",
+      "int main() {",
+      "    ios::sync_with_stdio(false);",
+      "    cin.tie(nullptr);",
+      "",
+      "    int t;",
+      "    cin >> t;",
+      "    while (t--) solve();",
+      "}"
+    ],
+    "description": "Default CP Template"
+  },
+  "Full C++ Template": {
+    "prefix": "cpp",
     "body": [
       "#include <bits/stdc++.h>",
       "using namespace std;",
@@ -846,7 +876,7 @@
       "    while (t--) solve();",
       "}"
     ],
-    "description": "My C++ Template"
+    "description": "Full C++ Template (with algorithms)"
   },
   "leetcode": {
     "prefix": "lcc",
