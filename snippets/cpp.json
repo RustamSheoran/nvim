@@ -3,6 +3,7 @@
     "prefix": "cp",
     "body": [
       "#include <bits/stdc++.h>",
+      "#include <cassert>",
       "using namespace std;",
       "",
       "using ll = long long;",
@@ -33,6 +34,7 @@
     "prefix": "cpp",
     "body": [
       "#include <bits/stdc++.h>",
+      "#include <cassert>",
       "using namespace std;",
       "using ll = long long;",
       "using vi = vector<int>;",
