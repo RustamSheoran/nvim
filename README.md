@@ -59,13 +59,13 @@ We use `clang-format` as the absolute gold standard for C++ formatting.
 - **Manual Formatting:** If you want to format your code without saving, just press `<leader>cf` (Space + c + f) to format the current buffer.
 
 ### 4. Testing Your Code
-This setup uses `competitest.nvim` under the hood to manage test cases natively using `clang++ -std=c++23`.
+This setup uses `competitest.nvim` under the hood to manage test cases natively using `g++ -std=c++23`.
 - Press `<leader>rr` to run your code against the sample test cases.
 - **Custom Inputs:** If you want to test edge cases, you don't have to use the terminal. Press `<leader>ra` to add a new test case, or `<leader>re` to edit existing ones in a clean UI popup. 
 
 ### 5. Submitting 
 - When your code is ready, press `<leader>rs`.
-- Neovim runs a lightning-fast background syntax check (`clang++ -std=c++23 -fsyntax-only`). If you have a typo or missing semicolon, it aborts the submission and warns you—saving you from a penalty.
+- Neovim runs a lightning-fast background syntax check (`g++ -std=c++23 -fsyntax-only`). If you have a typo or missing semicolon, it aborts the submission and warns you—saving you from a penalty.
 - If it compiles cleanly, Neovim sends your code (formatted as C++23) straight to the `cph-submit` browser extension, which submits it to Codeforces automatically.
 
 ## Default Template (`cp_template.cpp`)
