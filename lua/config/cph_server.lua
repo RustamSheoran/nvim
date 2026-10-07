@@ -160,34 +160,108 @@ function M.start()
 end
 
 function M.submit(url, filepath)
-  vim.notify("Checking compilation...", vim.log.levels.INFO)
-  
-  vim.system({"g++", "-std=c++23", "-include", "cassert", "-fsyntax-only", filepath}, { text = true }, function(obj)
-    if obj.code ~= 0 then
+  vim.notify("Step 1/2: Checking syntax...", vim.log.levels.INFO, { title = "Submit" })
+
+  -- 1. Fast Syntax Check
+  vim.system({ "g++", "-std=c++23", "-fsyntax-only", filepath }, { text = true }, function(syn_obj)
+    if syn_obj.code ~= 0 then
       vim.schedule(function()
-        vim.notify("=== COMPILATION FAILED: SUBMISSION ABORTED ===\n" .. obj.stderr, vim.log.levels.ERROR)
+        vim.notify("=== SYNTAX CHECK FAILED: SUBMISSION ABORTED ===\n" .. syn_obj.stderr, vim.log.levels.ERROR, { title = "Submit" })
       end)
       return
     end
-    
+
+    -- 2. AddressSanitizer & UndefinedBehaviorSanitizer Sanity Check
     vim.schedule(function()
-      vim.notify("Compilation successful! Serving code to cph-submit...", vim.log.levels.INFO)
-      
-      local f = io.open(filepath, "r")
-      if not f then return end
-      local source_code = f:read("*a")
-      f:close()
-      
-      local payload_tbl = {
-        empty = false,
-        url = url,
-        problemName = "",
-        languageId = "91", -- C++23 (GCC 14-64, msys2)
-        sourceCode = source_code,
-      }
-      
-      current_payload = vim.fn.json_encode(payload_tbl)
-      M.start()
+      vim.notify("Step 2/2: Running Sanitizer check (ASan/UBSan)...", vim.log.levels.INFO, { title = "Submit" })
+    end)
+
+    local asan_bin = "/tmp/__cph_asan_check"
+    vim.system({ "g++", "-O2", "-std=c++23", "-fsanitize=address,undefined", "-g", filepath, "-o", asan_bin }, { text = true }, function(asan_comp)
+      if asan_comp.code ~= 0 then
+        vim.schedule(function()
+          vim.notify("=== SANITIZER COMPILE FAILED: SUBMISSION ABORTED ===\n" .. asan_comp.stderr, vim.log.levels.ERROR, { title = "Submit" })
+        end)
+        return
+      end
+
+      -- Check if sample testcases exist
+      local tc_file = vim.fn.fnamemodify(filepath, ":r") .. ".testcases"
+      local tc_list = {}
+      if vim.fn.filereadable(tc_file) == 1 then
+        pcall(function()
+          local tctbl = require("competitest.testcases").single_file.load(tc_file)
+          local keys = {}
+          for k in pairs(tctbl) do
+            table.insert(keys, k)
+          end
+          table.sort(keys)
+          for _, k in ipairs(keys) do
+            if tctbl[k] and tctbl[k].input and tctbl[k].input ~= "" then
+              table.insert(tc_list, tctbl[k].input)
+            end
+          end
+        end)
+      end
+
+      -- Helper to complete submission
+      local function do_submit()
+        vim.schedule(function()
+          pcall(vim.fn.delete, asan_bin)
+          vim.notify("✅ Sanity check passed! Submitting code to cph-submit...", vim.log.levels.INFO, { title = "Submit" })
+
+          local f = io.open(filepath, "r")
+          if not f then
+            return
+          end
+          local source_code = f:read("*a")
+          f:close()
+
+          local payload_tbl = {
+            empty = false,
+            url = url,
+            problemName = "",
+            languageId = "91", -- C++23 (GCC 14-64, msys2)
+            sourceCode = source_code,
+          }
+
+          current_payload = vim.fn.json_encode(payload_tbl)
+          M.start()
+        end)
+      end
+
+      if #tc_list == 0 then
+        do_submit()
+        return
+      end
+
+      -- Run against each sample testcase
+      local function run_testcase(index)
+        if index > #tc_list then
+          do_submit()
+          return
+        end
+
+        vim.system({ asan_bin }, { stdin = tc_list[index], text = true }, function(run_obj)
+          local err_output = (run_obj.stderr or "") .. (run_obj.stdout or "")
+          local has_asan_err = run_obj.code ~= 0
+            or err_output:find("AddressSanitizer")
+            or err_output:find("runtime error:")
+
+          if has_asan_err then
+            vim.schedule(function()
+              pcall(vim.fn.delete, asan_bin)
+              local msg = string.format("🚨 SANITIZER ERROR ON SAMPLE TESTCASE #%d: SUBMISSION ABORTED!\n\n%s", index, err_output)
+              vim.notify(msg, vim.log.levels.ERROR, { title = "Submit Aborted" })
+            end)
+            return
+          end
+
+          run_testcase(index + 1)
+        end)
+      end
+
+      run_testcase(1)
     end)
   end)
 end

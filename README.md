@@ -1,101 +1,344 @@
-# My LazyVim + Competitive Programming Setup
+# Ultra-Fast Competitive Programming IDE (LazyVim + C++23)
 
-This is my personal Neovim configuration based on [LazyVim](https://github.com/LazyVim/LazyVim). I've heavily customized it to create a blazing-fast, terminal-based competitive programming workflow.
+A high-performance, keyboard-driven Competitive Programming environment built on top of [LazyVim](https://github.com/LazyVim/LazyVim), GCC 16, C++23, and a native Lua HTTP server.
 
-If you're coming from VS Code and miss the seamless experience of the CPH (Competitive Programming Helper) extension, this setup is for you. We've built a native Lua HTTP server right into Neovim that entirely replaces the need for VS Code or any bulky Node.js background servers. 
+This setup replaces the need for VS Code and heavy Node.js background processes with a completely native, terminal-based workflow that compiles in **~0.9s**, automatically fetches testcases from your browser, stress-tests solutions against brute forces, runs AddressSanitizer pre-submission checks, and submits directly to Codeforces with a single keystroke.
 
-## What You Need
+---
 
-To get the full one-click fetch and submit experience, you need to install two browser extensions:
-1. **[Competitive Companion](https://github.com/jmerle/competitive-companion)** (often just called CPH) - Parses the problem statement and test cases from the website.
-2. **[cph-submit](https://github.com/agrawal-d/cph-submit)** - Automates submitting your code directly from the editor to Codeforces.
+## Key Highlights
 
-You'll also need Neovim (>=0.10) and a C++ compiler (`g++`) installed on your machine.
+- **⚡ Blazing Fast Compilation (~0.9s):** Uses GCC 16 Precompiled Headers (`bits/stdc++.h.gch`) compiled with `-O2` to drop compile times from ~2.7s down to ~0.9s.
+- **🚀 Native CPH Server in Lua:** Built-in HTTP listener on port `27121` that communicates directly with browser extensions. Zero external dependencies.
+- **🛡️ 2-Step Pre-Submission Protection:** Running `<leader>rs` automatically verifies syntax (`-fsyntax-only`) AND compiles with AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases before submitting to prevent accidental penalties.
+- **🔍 Dedicated Local Debug Runner (`<leader>rd`):** Compiles with `-DLOCAL -DDEBUG` to run all saved testcases, printing variables via `dbg(...)`, wrapping outputs in `------`, and measuring execution time in milliseconds.
+- **💥 Automated Stress Testing (`<leader>rb`):** Auto-generates `brute.cpp` (pre-filled with your template) and `gen.cpp` (with random arrays, permutations, strings, and trees). Halts on the first output mismatch and displays the counterexample.
+- **🎨 Google C++ Style Guide:** Globally formatted with `clang-format` (`BasedOnStyle: Google`) on save and via `<leader>cf`.
+- **📦 On-Demand Algorithm Snippets:** Clean, minimal default template (~110 lines) paired with instant LuaSnip snippets for heavy algorithms (`dsu`, `segtree`, `fenwik`, `fastmap`, `oset`, `seive`, `binpow`).
+- **💡 Distraction-Free Editing:** Treesitter-powered completion filtering (no comment words in suggestions), 2-second idle auto-save, relative line numbering (`0` at cursor line), and custom statusline metrics.
 
-## Installation
+---
 
-To use this config on a new machine (or if you are just trying it out):
+## Prerequisites & Installation
+
+### Requirements
+- **Neovim** (>= 0.10)
+- **GCC** (`g++`) with C++23 support
+- **Browser Extensions:**
+  1. [Competitive Companion](https://github.com/jmerle/competitive-companion) — Parses problem statements and sample test cases from Codeforces, AtCoder, etc.
+  2. [cph-submit](https://github.com/agrawal-d/cph-submit) — Automates submitting solution code to Codeforces directly from the editor.
+
+### Installation
 
 ```bash
-# Backup your existing config just in case
+# 1. Backup your existing configuration (if any)
 mv ~/.config/nvim ~/.config/nvim.bak
 
-# Clone this repository
+# 2. Clone this repository
 git clone git@github.com:RustamSheoran/nvim.git ~/.config/nvim
 
-# Open Neovim to let LazyVim download plugins
+# 3. Launch Neovim (LazyVim will automatically install all plugins)
 nvim
 ```
 
-### GitHub Copilot Authentication
-This setup uses **GitHub Copilot** to provide AI-powered ghost text and code suggestions. On a fresh install, you **must** authenticate Copilot for the suggestions to start working.
-
-After opening Neovim, run the following command in normal mode:
+### GitHub Copilot Setup
+This config includes GitHub Copilot for ghost text suggestions. On first setup, authenticate Copilot by running:
 ```vim
 :Copilot auth
 ```
-Follow the prompts in your browser to sign in. Once authenticated, Copilot will start providing ghost text suggestions automatically as you type.
+Follow the browser prompts to link your GitHub account. You can toggle Copilot ON/OFF at any time during contests using `<leader>tc`.
 
-## The Workflow
+---
 
-*(Note: The `<leader>` key in this setup is mapped to the **Spacebar**)*
+## Performance Architecture
 
-### 1. File Creation & Snippets
-This setup gives you three fast ways to generate your boilerplates anywhere:
-- **Default CP Template (`cp`):** Open any `.cpp` file and type `cp`. Your autocompletion will instantly expand into your clean, concise default Competitive Programming template.
-- **Full Library Template (`cpp`):** Open any `.cpp` file and type `cpp`. Your autocompletion will expand into your full template containing your complete algorithm library (DSU, Dinic, Segment Tree, KMP, etc.).
-- **LeetCode Template (`lcc`):** Open any `.cpp` file and type `lcc`. It will expand into a fully minified, 1-line LeetCode helper template (containing fast I/O and math helpers) without cluttering the screen so you can paste `class Solution` right beneath it.
-- **Auto-Injection (For CP):** If you create **any** file inside the `~/cp/` directory or fetch a problem via Competitive Companion, Neovim automatically injects the default `cp_template.cpp`.
-- **Auto-Jump Magic:** As soon as a template is inserted (manually or automatically), Neovim searches for the `void solve() {` block, automatically jumps your cursor inside it with clean indentation, and puts you into Insert Mode. You can just start typing your logic immediately!
+### Precompiled Header (`bits/stdc++.h.gch`)
+In competitive programming, `#include <bits/stdc++.h>` pulls in over 300,000 lines of standard library templates, which normally takes ~2.7s to compile from scratch every single run.
 
-### 2. Fetching a Problem
-- Open a terminal in your `~/cp/` directory and launch Neovim.
-- Open a Codeforces problem in your browser and click the **green plus icon** (Competitive Companion).
-- **What happens:** Neovim instantly catches the problem data on port `27121`. It builds the folder structure, creates the `.cpp` file (applying the default template and jumping your cursor), and saves all the test cases. 
+We precompiled the header directly into GCC's internal include directory:
+```
+/usr/include/c++/16/x86_64-pc-linux-gnu/bits/stdc++.h.gch/c++23_O2.gch
+```
+- **GCC PCH Rule:** GCC requires the precompiled header to be the *first* token encountered. Compiling with `-std=c++23 -O2` allows GCC to instantly memory-map the precompiled header, reducing compilation time down to **~0.9s**.
+- **No `-include cassert`:** Flags like `-include cassert` bypass the PCH and recompile from scratch. Our compile pipeline is clean and preserves the PCH cache.
 
-### 3. Formatting (clang-format)
-We use `clang-format` as the absolute gold standard for C++ formatting.
-- **On by Default:** Auto-formatting is globally enabled. Every time you save your file (`Ctrl + S`), Neovim automatically runs `clang-format` on your code.
-- **Manual Formatting:** If you want to format your code without saving, just press `<leader>cf` (Space + c + f) to format the current buffer.
+### Clangd LSP Optimization
+To eliminate typing lag and noisy diagnostics:
+- `--clang-tidy=false`: Disables static analysis warnings (e.g. yellow warnings on `bit_width` or magic numbers) while keeping real syntax errors fully active.
+- `--header-insertion=never`: Prevents unwanted automatic `#include` additions.
+- `inlay_hints = { enabled = false }`: Disables virtual inline parameter hints that cause stutter during rapid typing.
 
-### 4. Testing Your Code
-This setup uses `competitest.nvim` under the hood to manage test cases natively using `g++ -std=c++23`.
-- Press `<leader>rr` to run your code against the sample test cases.
-- **Custom Inputs:** If you want to test edge cases, you don't have to use the terminal. Press `<leader>ra` to add a new test case, or `<leader>re` to edit existing ones in a clean UI popup. 
+---
 
-### 5. Submitting 
-- When your code is ready, press `<leader>rs`.
-- Neovim runs a lightning-fast background syntax check (`g++ -std=c++23 -fsyntax-only`). If you have a typo or missing semicolon, it aborts the submission and warns you—saving you from a penalty.
-- If it compiles cleanly, Neovim sends your code (formatted as C++23) straight to the `cph-submit` browser extension, which submits it to Codeforces automatically.
+## The Workflow Guide
+
+*(Note: The `<leader>` key is mapped to **Spacebar**)*
+
+### 1. One-Click Problem Fetching
+1. Open Neovim in your `~/cp` directory.
+2. In your browser, open any Codeforces or AtCoder problem and click the **green plus icon** (Competitive Companion).
+3. **What happens automatically:**
+   - The native Lua HTTP server on port `27121` receives the problem statement.
+   - It creates the folder hierarchy: `~/cp/<Judge>/<Contest>/<Problem>.cpp`.
+   - Saves sample inputs and outputs in `<Problem>.testcases` and the problem URL in `<Problem>.url`.
+   - Injects the default CP template (`cp_template.cpp`).
+   - **Auto-Jump Magic:** Neovim automatically locates `void solve() {`, places your cursor inside with 4-space indentation, and switches into **Insert Mode** so you can start coding your logic immediately.
+
+### 2. On-Demand Algorithm Snippets
+Instead of bloating your base template with thousands of lines of unused algorithms, insert algorithms on demand by typing the prefix in Insert mode and pressing `<Enter>`:
+
+| Prefix | Algorithm / Data Structure | Details |
+|---|---|---|
+| `cp` | **Default CP Template** | Clean, modern base template (~110 lines) |
+| `fenwik` / `bit` | **Binary Indexed Tree** | 0-indexed BIT with binary lifting `lower_bound` in $\mathcal{O}(\log N)$ |
+| `seive` / `prime` | **Linear Sieve & Primes** | $\mathcal{O}(N)$ sieve with Smallest Prime Factor (SPF) & $\mathcal{O}(\log X)$ prime factorization |
+| `dsu` / `unionfind`| **Disjoint Set Union** | Path compression + component sizes |
+| `segtree` | **Iterative Segment Tree** | Cache-friendly, iterative segment tree with point update & range query |
+| `fastmap` / `hashmap`| **Anti-Hack Hash Table** | 5.5x faster PBDS `gp_hash_table` with `splitmix64` custom hash |
+| `oset` / `ordered_set`| **Policy-Based Ordered Set** | PBDS `order_of_key` and `find_by_order` in $\mathcal{O}(\log N)$ |
+| `binpow` / `power` | **Binary Exponentiation** | Modular power with `__int128` intermediate overflow protection |
+| `cpp` | **Full Library Template** | Complete 950-line monolithic library |
+| `lcc` | **LeetCode Template** | Minified 1-line helper template |
+
+#### Fast Macro Expansion Snippets:
+- `rep` $\rightarrow$ `rep(i, n) { ... }` with `<Tab>` navigation between `i` and `n`.
+- `rep1` $\rightarrow$ `rep1(i, n) { ... }` (1-indexed loop).
+- `rrep` $\rightarrow$ `rrep(i, n) { ... }` (reverse loop).
+- `forr` $\rightarrow$ `forr(i, a, b) { ... }` (range loop).
+- `each` $\rightarrow$ `each(x, a) { ... }` (range-for loop).
+- `all` $\rightarrow$ `all(x)`
+- `sz` $\rightarrow$ `sz(x)`
+- `chmin` / `chmax` $\rightarrow$ updates variable if smaller/larger.
+- `dbg` $\rightarrow$ `dbg(x);`
+
+### 3. Google C++ Code Formatting
+Formatted with `clang-format` enforcing the official **Google C++ Style Guide** (`~/.clang-format`):
+- **2 Spaces Indentation:** Clean, compact nested logic.
+- **Attached Braces:** Opening braces stay on the same line (`if (n > 0) {`).
+- **Left-Aligned Pointers:** `int* ptr;`, `vector<int>& v;`.
+- **On by Default:** Automatically formats your code on save or whenever you leave insert mode. Press `<leader>cf` to manually format anytime.
+
+### 4. Running Sample Testcases (`<leader>rr`)
+- Press `<leader>rr` to run your solution against the sample testcases using `competitest.nvim`.
+- Compiles in **~0.9s** with `g++ -O2 -std=c++23`.
+- **Clean Diff View:** Displays inputs, outputs, and expected outputs side by side with green/red status.
+- **Custom Cases:** Press `<leader>ra` to add custom test cases, `<leader>re` to edit, or `<leader>rD` to delete.
+- **Fast Close:** When the CompetiTest window is open, press single key **`q`**, **`Q`**, or **`<Esc>`** to close it instantly.
+
+### 5. Local Debugging (`<leader>rd` or `<leader>rx`)
+When you want to inspect variables, verify execution time, or test custom inputs:
+- Press `<leader>rd` (or `<leader>rx`).
+- Compiles with **`-DLOCAL -DDEBUG`**.
+- **What it does:**
+  1. Runs each saved sample testcase of the problem:
+     - Prints the Input and Expected Output.
+     - Prints your output with `------` testcase separators.
+     - Prints variable values logged with `dbg(...)` (e.g. `dbg(n, arr)` $\rightarrow$ `[n, arr]: 5 | 1 2 3 4 5`).
+     - Prints execution time measured by Chrono Clock (`[Time: X.XX ms]`).
+  2. Offers an optional interactive prompt to test arbitrary manual inputs.
+- **Zero Online Judge Cost:** On Codeforces (where `-DDEBUG` and `-DLOCAL` are not defined), `dbg(...)` automatically compiles into `42` (a zero-cost no-op stripped by the compiler). You never need to delete your debug statements before submitting!
+
+### 6. Automated Stress Testing (`<leader>rb`)
+When you are stuck on *"Wrong Answer on test 4"* and sample cases pass:
+- Press `<leader>rb` (Run Brute-force / Stress test).
+- **Auto-Generated Templates:**
+  - `brute.cpp`: Created with your full CP template (`ll`, `vi`, `rep`, safe math, stream I/O) ready for your slow $\mathcal{O}(N^2)$ brute-force logic.
+  - `gen.cpp`: Pre-loaded with generator helpers (`rand_int`, `rand_array`, `rand_permutation`, `rand_string`, `rand_tree`).
+- **Split Navigation:**
+  - Press `<leader>rB` to open `brute.cpp` in a vertical split beside your solution.
+  - Press `<leader>rG` to open `gen.cpp` in a vertical split beside your solution.
+  - Close split windows with `:q`, `:Q`, or `Ctrl+w, c`.
+- **Automated Loop:** Neovim compiles all three programs and loops random testcases until the first output mismatch is detected.
+- **Counterexample Display:** Immediately halts and prints:
+  - Failing testcase number
+  - Full input (`__in.txt`)
+  - Your solution output (`__out_sol.txt`)
+  - Brute force output (`__out_brute.txt`)
+- **100% Submission Safety:** Stress testing files are completely isolated. Submitting (`<leader>rs`) sends **only** your solution buffer.
+
+### 7. Diagnostics with AddressSanitizer (`<leader>rz`)
+- Press `<leader>rz` to compile your code with `-fsanitize=address,undefined -g`.
+- Automatically catches:
+  - Segmentation faults / null pointer dereferences.
+  - Array out-of-bounds access (`arr[n]` when size is $n$).
+  - Signed integer overflow and undefined behavior.
+- Prints the **exact line number** of the memory bug in your source code!
+
+### 8. Two-Step Pre-Submission Protection (`<leader>rs`)
+When your solution is ready to submit:
+1. Press `<leader>rs`.
+2. **Step 1: Syntax Check:** Runs `g++ -std=c++23 -fsyntax-only`. If there is a typo or missing semicolon, submission aborts immediately.
+3. **Step 2: Sanitizer Sanity Check:** Compiles with `-fsanitize=address,undefined -g` and runs against all saved sample testcases. If an out-of-bounds bug or segfault occurs on the samples, submission is aborted and the exact line number is displayed—saving you from an immediate 50-point penalty on Codeforces!
+4. If clean, Neovim transmits the code to the `cph-submit` browser extension, submitting it to Codeforces automatically.
+
+### 9. Contest Toggles & Visual Customizations
+- **Copilot Toggle (`<leader>tc`):** Instantly toggle GitHub Copilot ON or OFF during rated contests to avoid rule violations.
+- **2-Second Idle Auto-Save:** Pausing typing for 2 seconds automatically saves the buffer in the background without interrupting your typing or shifting cursor position.
+- **Typo Protection:** Aliased common Shift-typo commands (`:Q` $\rightarrow$ `:q`, `:Qa` $\rightarrow$ `:qa`, `:W` $\rightarrow$ `:w`, `:Wq` $\rightarrow$ `:wq`, `:Wa` $\rightarrow$ `:wa`).
+- **Relative Line Numbers:** Active cursor line displays `0`, while lines above and below count upward `1, 2, 3...` for fast vertical jumping (`15j`, `8k`).
+- **Statusline (Bottom-Right):** Displays cursor position and total file size: `Ln %d, Col %d / %d lines`.
+
+---
+
+## Keymap Reference
+
+| Keymap | Action | Description |
+|---|---|---|
+| `<leader>rr` | **Run Testcases** | Compiles in ~0.9s and runs sample cases (press `q` to close) |
+| `<leader>rd` / `<leader>rx` | **Run Local Debug** | Runs testcases with `dbg(...)`, `------`, and Chrono timing |
+| `<leader>rb` | **Stress Test** | Automated loop (solution vs brute) until mismatch found |
+| `<leader>rB` | **Open Brute** | Opens `brute.cpp` in a vertical split |
+| `<leader>rG` | **Open Gen** | Opens `gen.cpp` in a vertical split |
+| `<leader>rz` | **Run Sanitizer** | Catches segfaults & out-of-bounds with exact line numbers |
+| `<leader>ru` | **Open Problem URL** | Opens Codeforces problem statement in browser |
+| `<leader>ra` | **Add Testcase** | Add a custom test case |
+| `<leader>re` | **Edit Testcase** | Edit existing sample test cases |
+| `<leader>rD` | **Delete Testcase** | Delete a testcase |
+| `<leader>rs` | **Submit** | 2-step verification (syntax + ASan) & submit via `cph-submit` |
+| `<leader>tc` | **Toggle Copilot** | Instantly enable/disable Copilot for contest rules |
+| `<leader>cf` | **Format Code** | Formats buffer with Google C++ Style |
+
+---
 
 ## Default Template (`cp_template.cpp`)
 
-Here is the clean default template automatically injected into every new problem:
+Here is the clean default template automatically injected into every new problem (compiles in **~0.9s**):
 
 ```cpp
 #include <bits/stdc++.h>
+#include <cassert>
+
 using namespace std;
 
-using ll = long long;
-using vi = vector<int>;
-using vll = vector<ll>;
+// ==================== Type Aliases ====================
+using ll   = long long;
+using ull  = unsigned long long;
+using ld   = long double;
+using i128 = __int128_t;
+using pii  = pair<int, int>;
+using pll  = pair<ll, ll>;
+using vi   = vector<int>;
+using vll  = vector<ll>;
+using vpii = vector<pii>;
+using vpll = vector<pll>;
+using vvi  = vector<vi>;
+using vvll = vector<vll>;
+template <class T> using min_pq = priority_queue<T, vector<T>, greater<T>>;
 
-#define all(x) (x).begin(), (x).end()
+// ==================== Macros ====================
+#define all(x)      (x).begin(), (x).end()
+#define rall(x)     (x).rbegin(), (x).rend()
+#define sz(x)       ((int)(x).size())
+#define pb          push_back
+#define eb          emplace_back
+#define fi          first
+#define se          second
+#define mp          make_pair
+#define sp          ' '
+#define nl          '\n'
 
-const ll INF = 1e18;
-const int MOD = 1e9 + 7;
+#define rep(i, n)        for (int i = 0; i < (n); ++i)
+#define rep1(i, n)       for (int i = 1; i <= (n); ++i)
+#define rrep(i, n)       for (int i = (n) - 1; i >= 0; --i)
+#define forr(i, a, b)    for (int i = (a); i <= (b); ++i)
+#define roff(i, a, b)    for (int i = (b); i >= (a); --i)
+#define each(x, a)       for (auto &x : a)
 
+// ==================== Constants & Both MODs ====================
+const int MOD1 = 1e9 + 7;
+const int MOD9 = 998244353;
+const ll INFLL = 1e18;
+const int INF  = 1e9 + 7;
+
+// ==================== Grid Directions ====================
+const int dx[4] = {1, 0, -1, 0};
+const int dy[4] = {0, 1, 0, -1};
+
+// ==================== Safe Div ====================
+ll cdiv(ll a, ll b) { return a / b + ((a ^ b) > 0 && a % b); }
+ll fdiv(ll a, ll b) { return a / b - ((a ^ b) < 0 && a % b); }
+
+// ==================== Modular Math ====================
+ll binpow(ll a, ll b, ll m = MOD1) {
+    ll res = 1; a %= m;
+    while (b > 0) {
+        if (b & 1) res = (i128)res * a % m;
+        a = (i128)a * a % m;
+        b >>= 1;
+    }
+    return res;
+}
+
+ll mod_add(ll a, ll b, ll m = MOD1) { return (a % m + b % m + m) % m; }
+ll mod_sub(ll a, ll b, ll m = MOD1) { return (a % m - b % m + m) % m; }
+ll mod_mul(ll a, ll b, ll m = MOD1) { return (i128)((a % m + m) % m) * ((b % m + m) % m) % m; }
+ll mod_inv(ll a, ll m = MOD1) { return binpow(a, m - 2, m); }
+ll mod_div(ll a, ll b, ll m = MOD1) { return mod_mul(a, mod_inv(b, m), m); }
+
+// ==================== chmin & chmax ====================
+template <class T, class U = T>
+bool chmin(T &a, U b) { if (b < a) { a = b; return true; } return false; }
+template <class T, class U = T>
+bool chmax(T &a, U b) { if (a < b) { a = b; return true; } return false; }
+
+// ==================== Loopless Stream I/O ====================
+template <class T1, class T2>
+istream &operator>>(istream &is, pair<T1, T2> &p) { return is >> p.fi >> p.se; }
+template <class T1, class T2>
+ostream &operator<<(ostream &os, const pair<T1, T2> &p) { return os << p.fi << ' ' << p.se; }
+
+template <class T>
+istream &operator>>(istream &is, vector<T> &v) { for (auto &x : v) is >> x; return is; }
+template <class T>
+ostream &operator<<(ostream &os, const vector<T> &v) {
+    for (int i = 0; i < sz(v); ++i) { if (i) os << ' '; os << v[i]; }
+    return os;
+}
+
+// 0-indexing shortcuts (e.g. cin >> edge; --edge;)
+template <class T1, class T2>
+pair<T1, T2> &operator--(pair<T1, T2> &p) { --p.fi; --p.se; return p; }
+template <class T>
+vector<T> &operator--(vector<T> &v) { for (auto &x : v) --x; return v; }
+
+// ==================== Debug Macro ====================
+#ifdef DEBUG
+void _dbg_out() { cerr << "\n"; }
+template <typename Head, typename... Tail>
+void _dbg_out(Head H, Tail... T) {
+    cerr << H;
+    if (sizeof...(T)) cerr << " | ";
+    _dbg_out(T...);
+}
+#define dbg(...) cerr << "[" << #__VA_ARGS__ << "]: ", _dbg_out(__VA_ARGS__)
+#else
+#define dbg(...) 42
+#endif
+
+// ==================== Solution ====================
 void solve() {
-
+    
 }
 
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    int t;
+    int t = 1;
     cin >> t;
+#ifdef LOCAL
+    auto _start = chrono::high_resolution_clock::now();
+    for (int tc = 1; tc <= t; ++tc) {
+        cout << "------\n";
+        solve();
+    }
+    cout << "------\n";
+    auto _end = chrono::high_resolution_clock::now();
+    chrono::duration<double, milli> _elapsed = _end - _start;
+    cerr << fixed << setprecision(2) << "\n[Time: " << _elapsed.count() << " ms]\n";
+#else
     while (t--) solve();
+#endif
 }
 ```
 

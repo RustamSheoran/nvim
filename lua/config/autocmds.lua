@@ -31,3 +31,65 @@ vim.api.nvim_create_autocmd("BufReadPost", {
     end
   end,
 })
+
+-- ==================== Idle Auto-Save (2s debounce) ====================
+local autosave_timer = nil
+
+vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+  group = vim.api.nvim_create_augroup("AutoSaveIdle", { clear = true }),
+  callback = function(args)
+    local buf = args.buf
+    if not vim.api.nvim_buf_is_valid(buf) or not vim.bo[buf].modified then
+      return
+    end
+    if vim.bo[buf].buftype ~= "" or vim.bo[buf].readonly or vim.api.nvim_buf_get_name(buf) == "" then
+      return
+    end
+
+    if autosave_timer then
+      autosave_timer:stop()
+      autosave_timer:close()
+      autosave_timer = nil
+    end
+
+    autosave_timer = vim.uv.new_timer()
+    autosave_timer:start(
+      2000,
+      0,
+      vim.schedule_wrap(function()
+        if autosave_timer then
+          autosave_timer:close()
+          autosave_timer = nil
+        end
+        if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].modified and vim.bo[buf].buftype == "" then
+          local mode = vim.api.nvim_get_mode().mode
+          vim.api.nvim_buf_call(buf, function()
+            if mode:find("^i") then
+              vim.cmd("silent! noautocmd write")
+            else
+              vim.cmd("silent! update")
+            end
+          end)
+        end
+      end)
+    )
+  end,
+})
+
+vim.api.nvim_create_autocmd("InsertLeave", {
+  group = "AutoSaveIdle",
+  callback = function(args)
+    local buf = args.buf
+    if
+      vim.api.nvim_buf_is_valid(buf)
+      and vim.bo[buf].modified
+      and vim.bo[buf].buftype == ""
+      and vim.api.nvim_buf_get_name(buf) ~= ""
+    then
+      vim.api.nvim_buf_call(buf, function()
+        vim.cmd("silent! update")
+      end)
+    end
+  end,
+})
+
