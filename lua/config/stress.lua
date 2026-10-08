@@ -7,12 +7,12 @@ function M.ensure_files(dir)
 
   if vim.fn.filereadable(brute_file) == 0 then
     local template_path = vim.fn.expand("~/.config/nvim/templates/cp_template.cpp")
-    local content = ""
+    local body = ""
     if vim.fn.filereadable(template_path) == 1 then
       local lines = vim.fn.readfile(template_path)
-      content = table.concat(lines, "\n")
+      body = table.concat(lines, "\n")
     else
-      content = [[#include <bits/stdc++.h>
+      body = [[#include <bits/stdc++.h>
 using namespace std;
 
 void solve() {
@@ -30,9 +30,32 @@ int main() {
 ]]
     end
 
+    local brute_header = [[// ============================================================================
+// 💡 BRUTE FORCE SOLUTION (brute.cpp)
+// ============================================================================
+// WHAT THIS FILE DOES:
+//   This is your slow, simple, 100% correct baseline solution.
+//   Your main solution (e.g. A.cpp) will be tested against this file.
+//
+// HOW TO WRITE THIS:
+//   1. DO NOT try to write an optimal O(N) or O(N log N) algorithm here!
+//   2. Write the simplest, most brain-dead code possible:
+//      - Nested loops (O(N^2) or O(N^3))
+//      - Recursion / backtracking (O(2^N) or O(N!))
+//      - Whatever is completely trivial and impossible to get wrong.
+//   3. Implement your brute-force logic inside solve() below.
+//
+// WORKFLOW:
+//   - Open with <leader>rB, write the brute logic, then save (:w or :q).
+//   - Ensure gen.cpp produces random inputs (<leader>rG).
+//   - In your main solution file, press <leader>rb to start stress testing!
+// ============================================================================
+
+]]
+
     local f = io.open(brute_file, "w")
     if f then
-      f:write(content)
+      f:write(brute_header .. body)
       f:close()
       created_any = true
     end
@@ -41,23 +64,69 @@ int main() {
   if vim.fn.filereadable(gen_file) == 0 then
     local f = io.open(gen_file, "w")
     if f then
-      f:write([[#include <bits/stdc++.h>
+      f:write([[// ============================================================================
+// 🎲 RANDOM TESTCASE GENERATOR (gen.cpp)
+// ============================================================================
+// WHAT THIS FILE DOES:
+//   This script outputs small, random test inputs matching the problem format.
+//   It feeds random tests to BOTH your solution and brute.cpp until they disagree.
+//
+// 💡 THE GOLDEN RULE OF STRESS TESTING:
+//   KEEP INPUTS SMALL! (e.g. N = 2 to 5, numbers = 1 to 10).
+//   - Small tests run in 0.001s so brute.cpp won't time out.
+//   - Most bugs happen on small edge cases (duplicates, zeros, N=2).
+//   - Counterexamples with 4 numbers are 100x easier to read and debug!
+//
+// 📚 QUICK EXAMPLES (Copy & adapt into main() below):
+//
+//   Example 1: Array of N integers
+//     int n = rand_int(2, 5);
+//     cout << n << "\n";
+//     auto a = rand_array(n, 1, 10);
+//     for (int i = 0; i < n; ++i) cout << a[i] << (i + 1 == n ? "" : " ");
+//     cout << "\n";
+//
+//   Example 2: Random String of characters (e.g. "abc")
+//     int n = rand_int(3, 6);
+//     cout << n << "\n";
+//     cout << rand_string(n, "abc") << "\n";
+//
+//   Example 3: Random Tree with N-1 edges
+//     int n = rand_int(3, 6);
+//     cout << n << "\n";
+//     for (auto [u, v] : rand_tree(n)) cout << u << " " << v << "\n";
+//
+//   Example 4: Random Permutation of 1..N
+//     int n = rand_int(3, 6);
+//     cout << n << "\n";
+//     for (int x : rand_permutation(n)) cout << x << " ";
+//     cout << "\n";
+//
+// WORKFLOW:
+//   - Open with <leader>rG, adapt main() to the problem's input format, save (:q).
+//   - In your main solution file, press <leader>rb to start stress testing!
+// ============================================================================
+
+#include <bits/stdc++.h>
 using namespace std;
 
 // High-quality 64-bit random generator
 mt19937_64 rng(chrono::steady_clock::now().time_since_epoch().count());
 
 // Helper generator functions:
+// 1. Random integer in range [l, r]
 long long rand_int(long long l, long long r) {
     return uniform_int_distribution<long long>(l, r)(rng);
 }
 
+// 2. Random array of n integers with values in [l, r]
 vector<long long> rand_array(int n, long long l, long long r) {
     vector<long long> a(n);
     for (auto &x : a) x = rand_int(l, r);
     return a;
 }
 
+// 3. Random permutation of numbers 1..n
 vector<int> rand_permutation(int n) {
     vector<int> p(n);
     iota(p.begin(), p.end(), 1);
@@ -65,13 +134,14 @@ vector<int> rand_permutation(int n) {
     return p;
 }
 
+// 4. Random string of length n using characters from charset
 string rand_string(int n, string charset = "abcdefghijklmnopqrstuvwxyz") {
     string s = "";
     for (int i = 0; i < n; ++i) s += charset[rand_int(0, (int)charset.size() - 1)];
     return s;
 }
 
-// Generate random connected tree of n vertices (1-indexed)
+// 5. Random connected tree of n vertices (1-indexed edges)
 vector<pair<int, int>> rand_tree(int n) {
     vector<pair<int, int>> edges;
     for (int i = 2; i <= n; ++i) {
@@ -86,13 +156,17 @@ vector<pair<int, int>> rand_tree(int n) {
     return edges;
 }
 
-// Write your testcase generation logic here:
+// ============================================================================
+// 👇 Write your testcase generation logic here:
+// ============================================================================
 int main() {
-    int t = 1;
+    int t = 1; // Number of testcases
     cout << t << "\n";
-    int n = rand_int(1, 10);
+
+    int n = rand_int(2, 5); // Keep N small!
     cout << n << "\n";
-    auto a = rand_array(n, 1, 100);
+
+    auto a = rand_array(n, 1, 10);
     for (int i = 0; i < n; ++i) {
         cout << a[i] << (i + 1 == n ? "" : " ");
     }
