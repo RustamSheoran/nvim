@@ -1295,5 +1295,660 @@
       "dbg(${1:x});"
     ],
     "description": "dbg(...) inspect variables"
+  },
+  "Tree DFS": {
+    "prefix": [
+      "dfs",
+      "treedfs"
+    ],
+    "body": [
+      "auto dfs = [&](auto &&self, int u, int p) -> void {",
+      "    for (int v : ${1:adj}[u]) {",
+      "        if (v == p) continue;",
+      "        ${0}",
+      "        self(self, v, u);",
+      "    }",
+      "};",
+      "dfs(dfs, ${2:1}, ${3:0});"
+    ],
+    "description": "Tree DFS with parent parameter"
+  },
+  "Graph DFS": {
+    "prefix": [
+      "gdfs",
+      "graph_dfs"
+    ],
+    "body": [
+      "vector<bool> vis(${1:n} + 1, false);",
+      "auto dfs = [&](auto &&self, int u) -> void {",
+      "    vis[u] = true;",
+      "    ${0}",
+      "    for (int v : ${2:adj}[u]) {",
+      "        if (!vis[v]) {",
+      "            self(self, v);",
+      "        }",
+      "    }",
+      "};",
+      "dfs(dfs, ${3:1});"
+    ],
+    "description": "Graph DFS with visited array"
+  },
+  "Breadth-First Search (BFS)": {
+    "prefix": [
+      "bfs"
+    ],
+    "body": [
+      "vi dist(${1:n} + 1, -1);",
+      "queue<int> q;",
+      "dist[${2:source}] = 0;",
+      "q.push(${2:source});",
+      "while (!q.empty()) {",
+      "    int u = q.front();",
+      "    q.pop();",
+      "    for (int v : ${3:adj}[u]) {",
+      "        if (dist[v] == -1) {",
+      "            dist[v] = dist[u] + 1;",
+      "            q.push(v);",
+      "        }",
+      "    }",
+      "}"
+    ],
+    "description": "Breadth-First Search unweighted shortest path"
+  },
+  "0-1 BFS": {
+    "prefix": [
+      "01bfs",
+      "zero_one_bfs"
+    ],
+    "body": [
+      "vi dist(${1:n} + 1, INF);",
+      "deque<int> dq;",
+      "dist[${2:source}] = 0;",
+      "dq.push_back(${2:source});",
+      "while (!dq.empty()) {",
+      "    int u = dq.front();",
+      "    dq.pop_front();",
+      "    for (auto [v, w] : ${3:adj}[u]) {",
+      "        if (dist[v] > dist[u] + w) {",
+      "            dist[v] = dist[u] + w;",
+      "            if (w == 0) dq.push_front(v);",
+      "            else dq.push_back(v);",
+      "        }",
+      "    }",
+      "}"
+    ],
+    "description": "0-1 BFS on 0/1 weighted graph using deque"
+  },
+  "Dijkstra Algorithm": {
+    "prefix": [
+      "dijkstra",
+      "dijk"
+    ],
+    "body": [
+      "vll dist(${1:n} + 1, INFLL);",
+      "priority_queue<pair<ll, int>, vector<pair<ll, int>>, greater<>> pq;",
+      "dist[${2:source}] = 0;",
+      "pq.push({0, ${2:source}});",
+      "while (!pq.empty()) {",
+      "    auto [d, u] = pq.top();",
+      "    pq.pop();",
+      "    if (d > dist[u]) continue;",
+      "    for (auto [v, w] : ${3:adj}[u]) {",
+      "        if (dist[v] > d + w) {",
+      "            dist[v] = d + w;",
+      "            pq.push({dist[v], v});",
+      "        }",
+      "    }",
+      "}"
+    ],
+    "description": "Dijkstra algorithm for shortest path using priority_queue"
+  },
+  "Topological Sort": {
+    "prefix": [
+      "topo",
+      "toposort"
+    ],
+    "body": [
+      "vi in_degree(${1:n} + 1, 0);",
+      "for (int u = 1; u <= ${1:n}; u++) {",
+      "    for (int v : ${2:adj}[u]) in_degree[v]++;",
+      "}",
+      "queue<int> q;",
+      "for (int i = 1; i <= ${1:n}; i++) {",
+      "    if (in_degree[i] == 0) q.push(i);",
+      "}",
+      "vi topo;",
+      "while (!q.empty()) {",
+      "    int u = q.front();",
+      "    q.pop();",
+      "    topo.push_back(u);",
+      "    for (int v : ${2:adj}[u]) {",
+      "        if (--in_degree[v] == 0) q.push(v);",
+      "    }",
+      "}"
+    ],
+    "description": "Kahn algorithm for topological sorting and cycle detection"
+  },
+  "Bellman-Ford Algorithm": {
+    "prefix": [
+      "bellman",
+      "bellman_ford"
+    ],
+    "body": [
+      "struct Edge { int u, v; ll w; };",
+      "vll dist(${1:n} + 1, INFLL);",
+      "dist[${2:source}] = 0;",
+      "bool has_neg_cycle = false;",
+      "for (int iter = 1; iter <= ${1:n}; iter++) {",
+      "    for (const auto &e : ${3:edges}) {",
+      "        if (dist[e.u] != INFLL && dist[e.u] + e.w < dist[e.v]) {",
+      "            dist[e.v] = dist[e.u] + e.w;",
+      "            if (iter == ${1:n}) has_neg_cycle = true;",
+      "        }",
+      "    }",
+      "}"
+    ],
+    "description": "Bellman-Ford algorithm with negative cycle detection"
+  },
+  "Floyd-Warshall Algorithm": {
+    "prefix": [
+      "floyd",
+      "floyd_warshall"
+    ],
+    "body": [
+      "for (int k = 1; k <= ${1:n}; k++) {",
+      "    for (int i = 1; i <= ${1:n}; i++) {",
+      "        for (int j = 1; j <= ${1:n}; j++) {",
+      "            if (dist[i][k] != INFLL && dist[k][j] != INFLL) {",
+      "                dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]);",
+      "            }",
+      "        }",
+      "    }",
+      "}"
+    ],
+    "description": "Floyd-Warshall all-pairs shortest paths"
+  },
+  "Kruskal MST": {
+    "prefix": [
+      "kruskal",
+      "mst"
+    ],
+    "body": [
+      "struct Edge {",
+      "    int u, v;",
+      "    ll w;",
+      "    bool operator<(const Edge &other) const { return w < other.w; }",
+      "};",
+      "sort(all(${1:edges}));",
+      "DSU dsu(${2:n} + 1);",
+      "ll mst_cost = 0;",
+      "vector<Edge> mst_edges;",
+      "for (const auto &e : ${1:edges}) {",
+      "    if (dsu.merge(e.u, e.v)) {",
+      "        mst_cost += e.w;",
+      "        mst_edges.push_back(e);",
+      "    }",
+      "}"
+    ],
+    "description": "Kruskal algorithm for Minimum Spanning Tree using DSU"
+  },
+  "Lowest Common Ancestor (LCA)": {
+    "prefix": [
+      "lca",
+      "binary_lifting"
+    ],
+    "body": [
+      "struct LCA {",
+      "    int n, LOG;",
+      "    vi depth;",
+      "    vector<vi> up;",
+      "    LCA(int n_ = 0) { if (n_) init(n_); }",
+      "    void init(int n_, int root = 1, const vector<vi> &adj = {}) {",
+      "        n = n_;",
+      "        LOG = 32 - __builtin_clz(n);",
+      "        depth.assign(n + 1, 0);",
+      "        up.assign(n + 1, vi(LOG, 0));",
+      "        auto dfs = [&](auto &&self, int u, int p, int d) -> void {",
+      "            depth[u] = d;",
+      "            up[u][0] = p;",
+      "            for (int i = 1; i < LOG; i++) up[u][i] = up[up[u][i - 1]][i - 1];",
+      "            for (int v : adj[u]) {",
+      "                if (v != p) self(self, v, u, d + 1);",
+      "            }",
+      "        };",
+      "        dfs(dfs, root, root, 0);",
+      "    }",
+      "    int get_lca(int u, int v) {",
+      "        if (depth[u] < depth[v]) swap(u, v);",
+      "        for (int i = LOG - 1; i >= 0; i--) {",
+      "            if (depth[u] - (1 << i) >= depth[v]) u = up[u][i];",
+      "        }",
+      "        if (u == v) return u;",
+      "        for (int i = LOG - 1; i >= 0; i--) {",
+      "            if (up[u][i] != up[v][i]) {",
+      "                u = up[u][i];",
+      "                v = up[v][i];",
+      "            }",
+      "        }",
+      "        return up[u][0];",
+      "    }",
+      "    int dist(int u, int v) { return depth[u] + depth[v] - 2 * depth[get_lca(u, v)]; }",
+      "    int kth_ancestor(int u, int k) {",
+      "        for (int i = 0; i < LOG; i++) {",
+      "            if (k & (1 << i)) u = up[u][i];",
+      "        }",
+      "        return u;",
+      "    }",
+      "};"
+    ],
+    "description": "Binary Lifting LCA and distance queries on trees"
+  },
+  "Tarjan SCC": {
+    "prefix": [
+      "scc",
+      "tarjan"
+    ],
+    "body": [
+      "struct SCC {",
+      "    int n, timer = 0, count = 0;",
+      "    vector<vi> adj;",
+      "    vi tin, low, comp, st;",
+      "    vector<bool> in_st;",
+      "    SCC(int n = 0) : n(n), adj(n + 1), tin(n + 1, -1), low(n + 1), comp(n + 1, -1), in_st(n + 1, false) {}",
+      "    void add_edge(int u, int v) { adj[u].push_back(v); }",
+      "    void dfs(int u) {",
+      "        tin[u] = low[u] = timer++;",
+      "        st.push_back(u);",
+      "        in_st[u] = true;",
+      "        for (int v : adj[u]) {",
+      "            if (tin[v] == -1) {",
+      "                dfs(v);",
+      "                low[u] = min(low[u], low[v]);",
+      "            } else if (in_st[v]) {",
+      "                low[u] = min(low[u], tin[v]);",
+      "            }",
+      "        }",
+      "        if (low[u] == tin[u]) {",
+      "            while (true) {",
+      "                int v = st.back();",
+      "                st.pop_back();",
+      "                in_st[v] = false;",
+      "                comp[v] = count;",
+      "                if (u == v) break;",
+      "            }",
+      "            count++;",
+      "        }",
+      "    }",
+      "    void build() {",
+      "        for (int i = 1; i <= n; i++) if (tin[i] == -1) dfs(i);",
+      "    }",
+      "};"
+    ],
+    "description": "Tarjan algorithm for finding Strongly Connected Components"
+  },
+  "Lazy Segment Tree": {
+    "prefix": [
+      "lazysegtree",
+      "lazyst",
+      "lazy_segtree"
+    ],
+    "body": [
+      "struct LazySegTree {",
+      "    int n;",
+      "    vll tree, lazy;",
+      "    LazySegTree(int n_ = 0) { init(n_); }",
+      "    void init(int n_) {",
+      "        n = 1;",
+      "        while (n < n_) n <<= 1;",
+      "        tree.assign(2 * n, 0);",
+      "        lazy.assign(2 * n, 0);",
+      "    }",
+      "    void push(int node, int l, int r) {",
+      "        if (lazy[node] == 0) return;",
+      "        int mid = (l + r) / 2;",
+      "        tree[2 * node] += lazy[node] * (mid - l);",
+      "        lazy[2 * node] += lazy[node];",
+      "        tree[2 * node + 1] += lazy[node] * (r - mid);",
+      "        lazy[2 * node + 1] += lazy[node];",
+      "        lazy[node] = 0;",
+      "    }",
+      "    void update(int ql, int qr, ll val, int node, int l, int r) {",
+      "        if (ql >= r || qr <= l) return;",
+      "        if (ql <= l && r <= qr) {",
+      "            tree[node] += val * (r - l);",
+      "            lazy[node] += val;",
+      "            return;",
+      "        }",
+      "        push(node, l, r);",
+      "        int mid = (l + r) / 2;",
+      "        update(ql, qr, val, 2 * node, l, mid);",
+      "        update(ql, qr, val, 2 * node + 1, mid, r);",
+      "        tree[node] = tree[2 * node] + tree[2 * node + 1];",
+      "    }",
+      "    void update(int ql, int qr, ll val) { update(ql, qr, val, 1, 0, n); }",
+      "    ll query(int ql, int qr, int node, int l, int r) {",
+      "        if (ql >= r || qr <= l) return 0;",
+      "        if (ql <= l && r <= qr) return tree[node];",
+      "        push(node, l, r);",
+      "        int mid = (l + r) / 2;",
+      "        return query(ql, qr, 2 * node, l, mid) + query(ql, qr, 2 * node + 1, mid, r);",
+      "    }",
+      "    ll query(int ql, int qr) { return query(ql, qr, 1, 0, n); }",
+      "};"
+    ],
+    "description": "Lazy Segment Tree with range add and range sum queries"
+  },
+  "Sparse Table (RMQ)": {
+    "prefix": [
+      "sparsetable",
+      "rmq",
+      "sparse_table"
+    ],
+    "body": [
+      "template <class T>",
+      "struct SparseTable {",
+      "    int n, K;",
+      "    vector<vector<T>> st;",
+      "    SparseTable(const vector<T> &a = {}) { if (!a.empty()) init(a); }",
+      "    void init(const vector<T> &a) {",
+      "        n = a.size();",
+      "        K = 32 - __builtin_clz(max(1, (int)n));",
+      "        st.assign(K, vector<T>(n));",
+      "        st[0] = a;",
+      "        for (int j = 1; j < K; j++) {",
+      "            for (int i = 0; i + (1 << j) <= n; i++) {",
+      "                st[j][i] = min(st[j - 1][i], st[j - 1][i + (1 << (j - 1))]);",
+      "            }",
+      "        }",
+      "    }",
+      "    T query(int l, int r) { // [l, r] inclusive",
+      "        int j = 31 - __builtin_clz(r - l + 1);",
+      "        return min(st[j][l], st[j][r - (1 << j) + 1]);",
+      "    }",
+      "};"
+    ],
+    "description": "Sparse Table for O(1) static Range Minimum Query"
+  },
+  "Dinic Max Flow": {
+    "prefix": [
+      "dinic",
+      "maxflow"
+    ],
+    "body": [
+      "struct Dinic {",
+      "    struct Edge { int to; ll cap, flow = 0; };",
+      "    int n, source, sink;",
+      "    vector<Edge> edges;",
+      "    vector<vi> adj;",
+      "    vi level, ptr;",
+      "    Dinic(int n, int s, int t) : n(n), source(s), sink(t), adj(n + 1), level(n + 1), ptr(n + 1) {}",
+      "    void add_edge(int from, int to, ll cap) {",
+      "        adj[from].push_back(edges.size());",
+      "        edges.push_back({to, cap});",
+      "        adj[to].push_back(edges.size());",
+      "        edges.push_back({from, 0});",
+      "    }",
+      "    bool bfs() {",
+      "        fill(all(level), -1);",
+      "        level[source] = 0;",
+      "        queue<int> q; q.push(source);",
+      "        while (!q.empty()) {",
+      "            int v = q.front(); q.pop();",
+      "            for (int id : adj[v]) {",
+      "                if (edges[id].cap - edges[id].flow < 1 || level[edges[id].to] != -1) continue;",
+      "                level[edges[id].to] = level[v] + 1;",
+      "                q.push(edges[id].to);",
+      "            }",
+      "        }",
+      "        return level[sink] != -1;",
+      "    }",
+      "    ll dfs(int v, ll pushed) {",
+      "        if (pushed == 0 || v == sink) return pushed;",
+      "        for (int &cid = ptr[v]; cid < (int)adj[v].size(); ++cid) {",
+      "            int id = adj[v][cid];",
+      "            int to = edges[id].to;",
+      "            if (level[v] + 1 != level[to] || edges[id].cap - edges[id].flow < 1) continue;",
+      "            ll tr = dfs(to, min(pushed, edges[id].cap - edges[id].flow));",
+      "            if (tr == 0) continue;",
+      "            edges[id].flow += tr;",
+      "            edges[id ^ 1].flow -= tr;",
+      "            return tr;",
+      "        }",
+      "        return 0;",
+      "    }",
+      "    ll max_flow() {",
+      "        ll flow = 0;",
+      "        while (bfs()) {",
+      "            fill(all(ptr), 0);",
+      "            while (ll pushed = dfs(source, INFLL)) flow += pushed;",
+      "        }",
+      "        return flow;",
+      "    }",
+      "};"
+    ],
+    "description": "Dinic algorithm for Maximum Flow in O(V^2 E)"
+  },
+  "Trie": {
+    "prefix": [
+      "trie",
+      "prefixtree"
+    ],
+    "body": [
+      "struct Trie {",
+      "    struct Node {",
+      "        int next[26];",
+      "        bool is_end = false;",
+      "        int count = 0;",
+      "        Node() { memset(next, -1, sizeof(next)); }",
+      "    };",
+      "    vector<Node> tree;",
+      "    Trie() { tree.emplace_back(); }",
+      "    void insert(const string &s) {",
+      "        int node = 0;",
+      "        for (char ch : s) {",
+      "            int c = ch - 'a';",
+      "            if (tree[node].next[c] == -1) {",
+      "                tree[node].next[c] = tree.size();",
+      "                tree.emplace_back();",
+      "            }",
+      "            node = tree[node].next[c];",
+      "            tree[node].count++;",
+      "        }",
+      "        tree[node].is_end = true;",
+      "    }",
+      "    bool search(const string &s) {",
+      "        int node = 0;",
+      "        for (char ch : s) {",
+      "            int c = ch - 'a';",
+      "            if (tree[node].next[c] == -1) return false;",
+      "            node = tree[node].next[c];",
+      "        }",
+      "        return tree[node].is_end;",
+      "    }",
+      "};"
+    ],
+    "description": "Trie prefix tree for lowercase alphabetic strings"
+  },
+  "Binary Trie (XOR)": {
+    "prefix": [
+      "bintrie",
+      "xortrie"
+    ],
+    "body": [
+      "struct BinaryTrie {",
+      "    struct Node {",
+      "        int next[2] = {-1, -1};",
+      "        int count = 0;",
+      "    };",
+      "    vector<Node> tree;",
+      "    int BITS;",
+      "    BinaryTrie(int bits = 30) : BITS(bits) { tree.emplace_back(); }",
+      "    void insert(ll x) {",
+      "        int node = 0;",
+      "        for (int i = BITS; i >= 0; i--) {",
+      "            int b = (x >> i) & 1;",
+      "            if (tree[node].next[b] == -1) {",
+      "                tree[node].next[b] = tree.size();",
+      "                tree.emplace_back();",
+      "            }",
+      "            node = tree[node].next[b];",
+      "            tree[node].count++;",
+      "        }",
+      "    }",
+      "    ll query_max_xor(ll x) {",
+      "        int node = 0;",
+      "        ll res = 0;",
+      "        for (int i = BITS; i >= 0; i--) {",
+      "            int b = (x >> i) & 1;",
+      "            int want = 1 - b;",
+      "            if (tree[node].next[want] != -1 && tree[tree[node].next[want]].count > 0) {",
+      "                res |= (1LL << i);",
+      "                node = tree[node].next[want];",
+      "            } else {",
+      "                node = tree[node].next[b];",
+      "            }",
+      "        }",
+      "        return res;",
+      "    }",
+      "};"
+    ],
+    "description": "Binary Trie for maximum / minimum XOR queries"
+  },
+  "Extended GCD & Modular Inverse": {
+    "prefix": [
+      "extgcd",
+      "modinv"
+    ],
+    "body": [
+      "ll extgcd(ll a, ll b, ll &x, ll &y) {",
+      "    if (b == 0) { x = 1; y = 0; return a; }",
+      "    ll x1, y1;",
+      "    ll d = extgcd(b, a % b, x1, y1);",
+      "    x = y1;",
+      "    y = x1 - y1 * (a / b);",
+      "    return d;",
+      "}",
+      "ll mod_inv(ll a, ll m = MOD) {",
+      "    ll x, y;",
+      "    extgcd(a, m, x, y);",
+      "    return (x % m + m) % m;",
+      "}"
+    ],
+    "description": "Extended Euclidean algorithm and modular inverse"
+  },
+  "Euler Phi / Totient": {
+    "prefix": [
+      "phi",
+      "totient"
+    ],
+    "body": [
+      "ll euler_phi(ll n) {",
+      "    ll res = n;",
+      "    for (ll p = 2; p * p <= n; p++) {",
+      "        if (n % p == 0) {",
+      "            while (n % p == 0) n /= p;",
+      "            res -= res / p;",
+      "        }",
+      "    }",
+      "    if (n > 1) res -= res / n;",
+      "    return res;",
+      "}"
+    ],
+    "description": "Euler totient function in O(sqrt(N))"
+  },
+  "Prime Factorization": {
+    "prefix": [
+      "primefact",
+      "factors"
+    ],
+    "body": [
+      "vector<pair<ll, int>> prime_factors(ll n) {",
+      "    vector<pair<ll, int>> factors;",
+      "    for (ll d = 2; d * d <= n; d++) {",
+      "        if (n % d == 0) {",
+      "            int count = 0;",
+      "            while (n % d == 0) { count++; n /= d; }",
+      "            factors.emplace_back(d, count);",
+      "        }",
+      "    }",
+      "    if (n > 1) factors.emplace_back(n, 1);",
+      "    return factors;",
+      "}"
+    ],
+    "description": "Prime factorization in O(sqrt(N))"
+  },
+  "Coordinate Compression": {
+    "prefix": [
+      "coordcomp",
+      "compress"
+    ],
+    "body": [
+      "template <class T>",
+      "vector<int> coordinate_compress(const vector<T> &vals) {",
+      "    vector<T> sorted = vals;",
+      "    sort(all(sorted));",
+      "    sorted.erase(unique(all(sorted)), sorted.end());",
+      "    vector<int> rank(vals.size());",
+      "    for (int i = 0; i < (int)vals.size(); i++) {",
+      "        rank[i] = lower_bound(all(sorted), vals[i]) - sorted.begin();",
+      "    }",
+      "    return rank;",
+      "}"
+    ],
+    "description": "In-place coordinate compression using sort and unique"
+  },
+  "2D Prefix Sum": {
+    "prefix": [
+      "pref2d",
+      "prefix2d"
+    ],
+    "body": [
+      "struct PrefixSum2D {",
+      "    vector<vector<ll>> pref;",
+      "    PrefixSum2D(const vector<vector<ll>> &grid) {",
+      "        int n = grid.size(), m = grid[0].size();",
+      "        pref.assign(n + 1, vector<ll>(m + 1, 0));",
+      "        for (int i = 0; i < n; i++) {",
+      "            for (int j = 0; j < m; j++) {",
+      "                pref[i + 1][j + 1] = grid[i][j] + pref[i][j + 1] + pref[i + 1][j] - pref[i][j];",
+      "            }",
+      "        }",
+      "    }",
+      "    ll query(int r1, int c1, int r2, int c2) { // 0-indexed [r1, r2] x [c1, c2]",
+      "        return pref[r2 + 1][c2 + 1] - pref[r1][c2 + 1] - pref[r2 + 1][c1] + pref[r1][c1];",
+      "    }",
+      "};"
+    ],
+    "description": "2D Prefix Sum query in O(1)"
+  },
+  "2D Difference Array": {
+    "prefix": [
+      "diffarray",
+      "diff2d"
+    ],
+    "body": [
+      "struct Diff2D {",
+      "    int n, m;",
+      "    vector<vector<ll>> diff;",
+      "    Diff2D(int n, int m) : n(n), m(m), diff(n + 2, vector<ll>(m + 2, 0)) {}",
+      "    void add(int r1, int c1, int r2, int c2, ll val) { // 0-indexed",
+      "        diff[r1 + 1][c1 + 1] += val;",
+      "        diff[r1 + 1][c2 + 2] -= val;",
+      "        diff[r2 + 2][c1 + 1] -= val;",
+      "        diff[r2 + 2][c2 + 2] += val;",
+      "    }",
+      "    vector<vector<ll>> build() {",
+      "        vector<vector<ll>> res(n, vector<ll>(m, 0));",
+      "        for (int i = 1; i <= n; i++) {",
+      "            for (int j = 1; j <= m; j++) {",
+      "                diff[i][j] += diff[i - 1][j] + diff[i][j - 1] - diff[i - 1][j - 1];",
+      "                res[i - 1][j - 1] = diff[i][j];",
+      "            }",
+      "        }",
+      "        return res;",
+      "    }",
+      "};"
+    ],
+    "description": "2D Difference Array for range additions"
   }
 }

@@ -84,19 +84,44 @@ To eliminate typing lag and noisy diagnostics:
    - Injects the default CP template (`cp_template.cpp`).
    - **Auto-Jump Magic:** Neovim automatically locates `void solve() {`, places your cursor inside with 4-space indentation, and switches into **Insert Mode** so you can start coding your logic immediately.
 
-### 2. On-Demand Algorithm Snippets
-Instead of bloating your base template with thousands of lines of unused algorithms, insert algorithms on demand by typing the prefix in Insert mode and pressing `<Enter>`:
+### 2. On-Demand Algorithm Snippets & Interactive Picker
+Instead of bloating your base template with thousands of lines of unused algorithms, insert algorithms on demand:
+- **Interactive Picker (`<leader>rt` or `rt`):** Press `<leader>rt` (or `rt`) in normal mode to open a fuzzy picker showing every algorithm, its prefix, and a live syntax-highlighted code preview. Press `<Enter>` on any algorithm to insert it instantly at your cursor!
+- **Insert Mode Completion:** Type any prefix below while coding and press `<Enter>` or `<Tab>` to expand it directly.
+- **Find Files Across PC (`<Space><Space>`):** Press Space twice to open the fuzzy file finder across your entire home directory.
 
 | Prefix | Algorithm / Data Structure | Details |
 |---|---|---|
 | `cp` | **Default CP Template** | Clean, modern base template (~110 lines) |
-| `fenwik` / `bit` | **Binary Indexed Tree** | 0-indexed BIT with binary lifting `lower_bound` in $\mathcal{O}(\log N)$ |
-| `seive` / `prime` | **Linear Sieve & Primes** | $\mathcal{O}(N)$ sieve with Smallest Prime Factor (SPF) & $\mathcal{O}(\log X)$ prime factorization |
+| `dfs` / `treedfs` | **Tree DFS** | Lambda DFS with parent parameter and tabstops |
+| `gdfs` / `graph_dfs` | **Graph DFS** | Lambda DFS with visited tracking |
+| `bfs` | **Breadth-First Search** | Unweighted shortest path on graphs |
+| `01bfs` | **0-1 BFS** | Deque-based shortest path on 0/1 weighted graphs |
+| `dijkstra` / `dijk` | **Dijkstra Algorithm** | Priority queue shortest path on weighted graphs |
+| `topo` / `toposort` | **Topological Sort** | Kahn's algorithm for ordering & cycle detection |
+| `bellman` | **Bellman-Ford** | Negative weight edges & negative cycle detection |
+| `floyd` | **Floyd-Warshall** | All-pairs shortest paths in $\mathcal{O}(V^3)$ |
+| `kruskal` / `mst` | **Kruskal's MST** | Minimum Spanning Tree using DSU |
+| `lca` / `binary_lifting` | **LCA & Binary Lifting** | Tree LCA, distance, and $k$-th ancestor in $\mathcal{O}(\log N)$ |
+| `scc` / `tarjan` | **Tarjan's SCC** | Strongly Connected Components condensation in $\mathcal{O}(V + E)$ |
+| `segtree` | **Iterative Segment Tree** | Cache-friendly point update & range query |
+| `lazysegtree` / `lazyst` | **Lazy Segment Tree** | Range add & range sum queries in $\mathcal{O}(\log N)$ |
+| `sparsetable` / `rmq` | **Sparse Table** | Static Range Minimum Query in $\mathcal{O}(1)$ |
+| `fenwik` / `bit` | **Binary Indexed Tree** | 0-indexed BIT with binary lifting `lower_bound` |
 | `dsu` / `unionfind`| **Disjoint Set Union** | Path compression + component sizes |
-| `segtree` | **Iterative Segment Tree** | Cache-friendly, iterative segment tree with point update & range query |
-| `fastmap` / `hashmap`| **Anti-Hack Hash Table** | 5.5x faster PBDS `gp_hash_table` with `splitmix64` custom hash |
+| `dinic` / `maxflow` | **Dinic's Algorithm** | Fast Maximum Network Flow in $\mathcal{O}(V^2 E)$ |
+| `trie` | **Trie (Prefix Tree)** | Alphabetical prefix search & word counting |
+| `bintrie` / `xortrie` | **Binary Trie** | Maximum / minimum XOR queries |
+| `extgcd` / `modinv` | **Extended GCD & Inverse** | Bézout coefficients and modular inverse |
+| `seive` / `prime` | **Linear Sieve & Primes** | $\mathcal{O}(N)$ sieve with SPF & prime factorization |
+| `phi` / `totient` | **Euler's Totient** | $\phi(N)$ count of coprimes in $\mathcal{O}(\sqrt{N})$ |
+| `primefact` / `factors` | **Prime Factorization** | $\mathcal{O}(\sqrt{N})$ prime factor decomposition |
+| `binpow` / `power` | **Binary Exponentiation** | Modular power with `__int128` overflow protection |
+| `coordcomp` / `compress` | **Coordinate Compression** | Map arbitrary values to $0 \dots K-1$ |
+| `pref2d` | **2D Prefix Sums** | Static 2D grid range sum query in $\mathcal{O}(1)$ |
+| `diffarray` / `diff2d` | **2D Difference Array** | 2D rectangular range increment updates |
+| `fastmap` / `hashmap`| **Anti-Hack Hash Table** | 5.5x faster PBDS `gp_hash_table` with `splitmix64` |
 | `oset` / `ordered_set`| **Policy-Based Ordered Set** | PBDS `order_of_key` and `find_by_order` in $\mathcal{O}(\log N)$ |
-| `binpow` / `power` | **Binary Exponentiation** | Modular power with `__int128` intermediate overflow protection |
 | `cpp` | **Full Library Template** | Complete 950-line monolithic library |
 | `lcc` | **LeetCode Template** | Minified 1-line helper template |
 
