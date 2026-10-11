@@ -97,13 +97,13 @@ Instead of bloating your base template with thousands of lines of unused algorit
 | `adj` / `graph` | **Read Graph (Adjacency List)**| Declares `vvi adj(n + 1)` and reads $m$ edges |
 | `tree` / `readtree` | **Read Tree** | Declares `vvi adj(n + 1)` and reads $n - 1$ tree edges |
 | `wadj` / `wgraph` | **Read Weighted Graph** | Declares `vector<vpll> adj(n + 1)` and reads $m$ weighted edges |
-| `dfs` / `gdfs` | **Graph DFS** | General graph DFS with `vis` tracking and lambda recursion |
-| `treedfs` / `tdfs` | **Tree DFS** | Tree DFS with parent `(u, p)` parameter and cycle skip |
-| `bfs` | **Breadth-First Search** | Unweighted shortest path on `adj` with `dist` array |
-| `01bfs` | **0-1 BFS** | Shortest path on 0/1 weighted `adj` using `deque` |
+| `dfs` / `gdfs` | **Graph DFS** | Self-contained graph DFS with `adj`, `vis` tracking, and `add_edge` |
+| `treedfs` / `tdfs` | **Tree DFS** | Self-contained tree DFS with `adj`, `add_edge`, and `(u, p)` parent skip |
+| `bfs` | **Breadth-First Search** | Self-contained unweighted BFS with `adj`, `add_edge`, and `dist` array |
+| `01bfs` | **0-1 BFS** | Self-contained 0-1 BFS with weighted `adj`, `add_edge`, and `deque` |
 | `gridbfs` / `bfs2d` | **Grid BFS (2D)** | 2D matrix BFS using template `dx`/`dy` and `rep(d, 4)` |
-| `dijkstra` / `dijk` | **Dijkstra Algorithm** | Min-priority queue shortest path on weighted `adj` |
-| `topo` / `toposort` | **Topological Sort** | Kahn's algorithm computing in-degrees from `adj` |
+| `dijkstra` / `dijk` | **Dijkstra Algorithm** | Self-contained Dijkstra with weighted `adj`, `add_edge`, and `pq` |
+| `topo` / `toposort` | **Topological Sort** | Self-contained Kahn's algorithm with `adj`, `in_degree`, and `add_edge` |
 | `bellman` | **Bellman-Ford** | Negative weight edges & negative cycle detection |
 | `floyd` | **Floyd-Warshall** | All-pairs shortest paths in $\mathcal{O}(V^3)$ |
 | `kruskal` / `mst` | **Kruskal's MST** | Minimum Spanning Tree using DSU |

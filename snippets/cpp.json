@@ -1318,16 +1318,22 @@
       "tree_dfs"
     ],
     "body": [
+      "vvi adj(${1:n} + 1);",
+      "auto add_edge = [&](int u, int v) {",
+      "    adj[u].pb(v);",
+      "    adj[v].pb(u);",
+      "};",
+      "",
       "auto dfs = [&](auto &&self, int u, int p) -> void {",
       "    $0",
-      "    each(v, ${2:adj}[u]) {",
+      "    each(v, adj[u]) {",
       "        if (v == p) continue;",
       "        self(self, v, u);",
       "    }",
       "};",
-      "dfs(dfs, ${3:1}, 0);"
+      "dfs(dfs, ${2:1}, 0);"
     ],
-    "description": "Tree DFS with parent parameter and lambda recursion"
+    "description": "Tree DFS with vvi adj, add_edge, and parent parameter"
   },
   "Graph DFS": {
     "prefix": [
@@ -1336,23 +1342,35 @@
       "graph_dfs"
     ],
     "body": [
+      "vvi adj(${1:n} + 1);",
       "vector<bool> vis(${1:n} + 1, false);",
+      "auto add_edge = [&](int u, int v) {",
+      "    adj[u].pb(v);",
+      "    adj[v].pb(u); // remove if directed",
+      "};",
+      "",
       "auto dfs = [&](auto &&self, int u) -> void {",
       "    vis[u] = true;",
       "    $0",
-      "    each(v, ${2:adj}[u]) {",
+      "    each(v, adj[u]) {",
       "        if (!vis[v]) self(self, v);",
       "    }",
       "};",
-      "dfs(dfs, ${3:1});"
+      "dfs(dfs, ${2:1});"
     ],
-    "description": "General Graph DFS with vis tracking and lambda recursion"
+    "description": "General Graph DFS with vvi adj, vis tracking, and lambda recursion"
   },
   "Breadth-First Search (BFS)": {
     "prefix": [
       "bfs"
     ],
     "body": [
+      "vvi adj(${1:n} + 1);",
+      "auto add_edge = [&](int u, int v) {",
+      "    adj[u].pb(v);",
+      "    adj[v].pb(u); // remove if directed",
+      "};",
+      "",
       "auto bfs = [&](int src) {",
       "    vi dist(${1:n} + 1, -1);",
       "    queue<int> q;",
@@ -1361,7 +1379,7 @@
       "    while (!q.empty()) {",
       "        int u = q.front();",
       "        q.pop();",
-      "        each(v, ${2:adj}[u]) {",
+      "        each(v, adj[u]) {",
       "            if (dist[v] == -1) {",
       "                dist[v] = dist[u] + 1;",
       "                q.push(v);",
@@ -1370,9 +1388,9 @@
       "    }",
       "    return dist;",
       "};",
-      "auto dist = bfs(${3:1});"
+      "auto dist = bfs(${2:1});"
     ],
-    "description": "Unweighted BFS shortest path from source"
+    "description": "Unweighted BFS shortest path with vvi adj and dist array"
   },
   "0-1 BFS": {
     "prefix": [
@@ -1380,6 +1398,12 @@
       "zero_one_bfs"
     ],
     "body": [
+      "vector<vpii> adj(${1:n} + 1);",
+      "auto add_edge = [&](int u, int v, int w) {",
+      "    adj[u].eb(v, w);",
+      "    adj[v].eb(u, w); // remove if directed",
+      "};",
+      "",
       "auto bfs01 = [&](int src) {",
       "    vi dist(${1:n} + 1, INF);",
       "    deque<int> dq;",
@@ -1388,7 +1412,7 @@
       "    while (!dq.empty()) {",
       "        int u = dq.front();",
       "        dq.pop_front();",
-      "        each(e, ${2:adj}[u]) {",
+      "        each(e, adj[u]) {",
       "            auto [v, w] = e;",
       "            if (chmin(dist[v], dist[u] + w)) {",
       "                if (w == 0) dq.push_front(v);",
@@ -1398,9 +1422,9 @@
       "    }",
       "    return dist;",
       "};",
-      "auto dist = bfs01(${3:1});"
+      "auto dist = bfs01(${2:1});"
     ],
-    "description": "0-1 BFS using deque for 0/1 weighted edges"
+    "description": "0-1 BFS using deque with vector<vpii> adj and add_edge"
   },
   "Dijkstra Algorithm": {
     "prefix": [
@@ -1408,6 +1432,12 @@
       "dijk"
     ],
     "body": [
+      "vector<vpll> adj(${1:n} + 1);",
+      "auto add_edge = [&](int u, int v, ll w) {",
+      "    adj[u].eb(v, w);",
+      "    adj[v].eb(u, w); // remove if directed",
+      "};",
+      "",
       "auto dijkstra = [&](int src) {",
       "    vll dist(${1:n} + 1, INFLL);",
       "    min_pq<pll> pq;",
@@ -1417,7 +1447,7 @@
       "        auto [d, u] = pq.top();",
       "        pq.pop();",
       "        if (d > dist[u]) continue;",
-      "        each(e, ${2:adj}[u]) {",
+      "        each(e, adj[u]) {",
       "            auto [v, w] = e;",
       "            if (chmin(dist[v], d + w)) {",
       "                pq.push({dist[v], v});",
@@ -1426,9 +1456,9 @@
       "    }",
       "    return dist;",
       "};",
-      "auto dist = dijkstra(${3:1});"
+      "auto dist = dijkstra(${2:1});"
     ],
-    "description": "Dijkstra algorithm using min-priority queue for non-negative weights"
+    "description": "Dijkstra algorithm with vector<vpll> adj, min_pq<pll>, and add_edge"
   },
   "Topological Sort": {
     "prefix": [
@@ -1436,25 +1466,32 @@
       "toposort"
     ],
     "body": [
+      "vvi adj(${1:n} + 1);",
+      "vi in_degree(${1:n} + 1, 0);",
+      "auto add_edge = [&](int u, int v) {",
+      "    adj[u].pb(v);",
+      "    in_degree[v]++;",
+      "};",
+      "",
       "auto toposort = [&]() {",
-      "    vi in_degree(${1:n} + 1, 0);",
-      "    rep1(u, ${1:n}) each(v, ${2:adj}[u]) in_degree[v]++;",
       "    queue<int> q;",
-      "    rep1(i, ${1:n}) if (in_degree[i] == 0) q.push(i);",
+      "    rep1(i, ${1:n}) {",
+      "        if (in_degree[i] == 0) q.push(i);",
+      "    }",
       "    vi order;",
       "    while (!q.empty()) {",
       "        int u = q.front();",
       "        q.pop();",
       "        order.pb(u);",
-      "        each(v, ${2:adj}[u]) {",
+      "        each(v, adj[u]) {",
       "            if (--in_degree[v] == 0) q.push(v);",
       "        }",
       "    }",
-      "    return order; // sz(order) < n means graph has a cycle",
+      "    return order; // if sz(order) < ${1:n}: graph contains a cycle!",
       "};",
       "auto order = toposort();"
     ],
-    "description": "Topological sort using Kahn's algorithm (BFS with in-degrees)"
+    "description": "Topological Sort with vvi adj, in_degree, add_edge, and Kahn BFS"
   },
   "Bellman-Ford Algorithm": {
     "prefix": [
@@ -2335,6 +2372,12 @@
     ],
     "description": "Prim algorithm for Minimum Spanning Tree using priority queue",
     "body": [
+      "vector<vpll> adj(${1:n} + 1);",
+      "auto add_edge = [&](int u, int v, ll w) {",
+      "    adj[u].eb(v, w);",
+      "    adj[v].eb(u, w);",
+      "};",
+      "",
       "auto prim = [&](int src = 1) {",
       "    vll dist(${1:n} + 1, INFLL);",
       "    vi parent(${1:n} + 1, -1);",
@@ -2349,7 +2392,7 @@
       "        if (vis[u]) continue;",
       "        vis[u] = true;",
       "        mst_cost += w;",
-      "        each(e, ${2:adj}[u]) {",
+      "        each(e, adj[u]) {",
       "            auto [v, weight] = e;",
       "            if (!vis[v] && chmin(dist[v], weight)) {",
       "                parent[v] = u;",
@@ -2359,7 +2402,7 @@
       "    }",
       "    return pair{mst_cost, parent};",
       "};",
-      "auto [mst_cost, parent] = prim(${3:1});"
+      "auto [mst_cost, parent] = prim(${2:1});"
     ]
   },
   "KMP Algorithm": {
@@ -2446,11 +2489,16 @@
     ],
     "description": "DFS 3-color directed cycle detection in O(V + E)",
     "body": [
+      "vvi adj(${1:n} + 1);",
+      "auto add_edge = [&](int u, int v) {",
+      "    adj[u].pb(v);",
+      "};",
+      "",
       "auto has_cycle = [&]() {",
       "    vi color(${1:n} + 1, 0); // 0 = unvisited, 1 = visiting, 2 = visited",
       "    auto dfs = [&](auto &&self, int u) -> bool {",
       "        color[u] = 1;",
-      "        each(v, ${2:adj}[u]) {",
+      "        each(v, adj[u]) {",
       "            if (color[v] == 1) return true;",
       "            if (color[v] == 0 && self(self, v)) return true;",
       "        }",
