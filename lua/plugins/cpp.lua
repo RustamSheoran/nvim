@@ -5,26 +5,26 @@ return {
     opts = function(_, opts)
       opts.fuzzy = opts.fuzzy or {}
       opts.fuzzy.sorts = {
+        -- 1. Exact matches ALWAYS come first (no hardcoding needed):
+        -- e.g. typing "pb" -> exact "pb" beats "pop_back"; typing "ll" -> exact "ll" beats fuzzy matches
         "exact",
+
+        -- 2. Natural fuzzy match score
         "score",
+
+        -- 3. Concise label length breaks score ties:
+        -- Short identifiers and macros naturally rank above long multi-word symbols
+        function(a, b)
+          if #a.label ~= #b.label then
+            return #a.label < #b.label
+          end
+        end,
+
+        -- 4. Lexicographical tie-breaker
         "sort_text",
       }
 
       opts.sources = opts.sources or {}
-      opts.sources.providers = opts.sources.providers or {}
-      opts.sources.providers.snippets = {
-        name = "Snippets",
-        score_offset = 10,
-      }
-      opts.sources.providers.buffer = {
-        name = "Buffer",
-        score_offset = 5,
-      }
-      opts.sources.providers.lsp = {
-        name = "LSP",
-        score_offset = 0,
-      }
-
       opts.sources.default = function()
         local success, node = pcall(vim.treesitter.get_node)
         if
