@@ -10,7 +10,7 @@ This setup replaces the need for VS Code and heavy Node.js background processes 
 
 - **⚡ Blazing Fast Compilation (~0.9s):** Uses GCC 16 Precompiled Headers (`bits/stdc++.h.gch`) compiled with `-O2` to drop compile times from ~2.7s down to ~0.9s.
 - **🚀 Native CPH Server in Lua:** Built-in HTTP listener on port `27121` that communicates directly with browser extensions. Zero external dependencies.
-- **🛡️ 2-Step Pre-Submission Protection:** Running `<leader>rs` automatically verifies syntax (`-fsyntax-only`) AND compiles with AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases before submitting to prevent accidental penalties.
+- **🛡️ 3-Step Pre-Submission Protection:** Running `<leader>rs` automatically comments out all active `dbg(...)` statements (without deleting them), verifies syntax (`-fsyntax-only`), AND compiles with AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases before submitting to prevent accidental penalties.
 - **🔍 Dedicated Local Debug Runner (`<leader>rd`):** Compiles with `-DLOCAL -DDEBUG` to run all saved testcases, printing variables via `dbg(...)`, wrapping outputs in `------`, and measuring execution time in milliseconds.
 - **💥 Automated Stress Testing (`<leader>rb`):** Auto-generates `brute.cpp` (pre-filled with your template) and `gen.cpp` (with random arrays, permutations, strings, and trees). Halts on the first output mismatch and displays the counterexample.
 - **🎨 Google C++ Style Guide:** Globally formatted with `clang-format` (`BasedOnStyle: Google`) on save and via `<leader>cf`.
@@ -142,14 +142,20 @@ Instead of bloating your base template with thousands of lines of unused algorit
 | `cpp` | **Full Library Template** | Complete 950-line monolithic library |
 | `lcc` | **LeetCode Template** | Minified 1-line helper template |
 
-#### Fast Macro Expansion Snippets:
+#### Fast Macro & Shorthand Expansion Snippets:
+- `pb` $\rightarrow$ `pb(...)` (prioritized over `pop_back`)
+- `eb` $\rightarrow$ `eb(...)` (prioritized over `emplace_back`)
+- `fi` / `se` $\rightarrow$ `fi` / `se` (`first` / `second`)
+- `mp` $\rightarrow$ `mp(a, b)` (`make_pair`)
 - `rep` $\rightarrow$ `rep(i, n) { ... }` with `<Tab>` navigation between `i` and `n`.
 - `rep1` $\rightarrow$ `rep1(i, n) { ... }` (1-indexed loop).
 - `rrep` $\rightarrow$ `rrep(i, n) { ... }` (reverse loop).
-- `forr` $\rightarrow$ `forr(i, a, b) { ... }` (range loop).
+- `forr` / `roff` $\rightarrow$ forward / reverse range loops.
 - `each` $\rightarrow$ `each(x, a) { ... }` (range-for loop).
-- `all` $\rightarrow$ `all(x)`
-- `sz` $\rightarrow$ `sz(x)`
+- `all` / `rall` $\rightarrow$ `all(x)` / `rall(x)`.
+- `sz` $\rightarrow$ `sz(x)` (prioritized over `size`).
+- `vi` / `vll` / `vvi` / `vvll` $\rightarrow$ vector type shorthands.
+- `min_pq` $\rightarrow$ `min_pq<ll>`.
 - `chmin` / `chmax` $\rightarrow$ updates variable if smaller/larger.
 - `dbg` $\rightarrow$ `dbg(x);`
 
@@ -206,12 +212,18 @@ When you are stuck on *"Wrong Answer on test 4"* and sample cases pass:
   - Signed integer overflow and undefined behavior.
 - Prints the **exact line number** of the memory bug in your source code!
 
-### 8. Two-Step Pre-Submission Protection (`<leader>rs`)
+### 8. Three-Step Pre-Submission Protection (`<leader>rs`)
 When your solution is ready to submit:
 1. Press `<leader>rs`.
-2. **Step 1: Syntax Check:** Runs `g++ -std=c++23 -fsyntax-only`. If there is a typo or missing semicolon, submission aborts immediately.
-3. **Step 2: Sanitizer Sanity Check:** Compiles with `-fsanitize=address,undefined -g` and runs against all saved sample testcases. If an out-of-bounds bug or segfault occurs on the samples, submission is aborted and the exact line number is displayed—saving you from an immediate 50-point penalty on Codeforces!
-4. If clean, Neovim transmits the code to the `cph-submit` browser extension, submitting it to Codeforces automatically.
+2. **Step 1: Auto-Comment Debugs:** Automatically finds and comments out all active `dbg(...)` statements (e.g. `// dbg(x);`) in your buffer without deleting them, then saves your file.
+3. **Step 2: Syntax Check:** Runs `g++ -std=c++23 -fsyntax-only`. If there is a typo or missing semicolon, submission aborts immediately.
+4. **Step 3: Sanitizer Sanity Check:** Compiles with `-fsanitize=address,undefined -g` and runs against all saved sample testcases. If an out-of-bounds bug or segfault occurs on the samples, submission is aborted and the exact line number is displayed—saving you from an immediate 50-point penalty on Codeforces!
+5. If clean, Neovim transmits the code to the `cph-submit` browser extension, submitting it to Codeforces automatically.
+
+> [!TIP]
+> You can also manually comment or uncomment all `dbg` calls anytime:
+> - `<leader>rc`: Comment all active `dbg(...)` statements in the file.
+> - `<leader>rC`: Uncomment all `dbg(...)` statements in the file.
 
 ### 9. Contest Toggles & Visual Customizations
 - **Copilot Toggle (`<leader>tc`):** Instantly toggle GitHub Copilot ON or OFF during rated contests to avoid rule violations.
@@ -236,7 +248,9 @@ When your solution is ready to submit:
 | `<leader>ra` | **Add Testcase** | Add a custom test case |
 | `<leader>re` | **Edit Testcase** | Edit existing sample test cases |
 | `<leader>rD` | **Delete Testcase** | Delete a testcase |
-| `<leader>rs` | **Submit** | 2-step verification (syntax + ASan) & submit via `cph-submit` |
+| `<leader>rs` | **Submit** | 3-step verification (comment dbg, syntax, ASan) & submit via `cph-submit` |
+| `<leader>rc` | **Comment Debugs** | Comments out all active `dbg(...)` calls in the buffer |
+| `<leader>rC` | **Uncomment Debugs** | Uncomments all `dbg(...)` calls in the buffer |
 | `<leader>tc` | **Toggle Copilot** | Instantly enable/disable Copilot for contest rules |
 | `<leader>cf` | **Format Code** | Formats buffer with Google C++ Style |
 

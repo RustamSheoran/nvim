@@ -174,7 +174,25 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
           end
         end)
       end,
-      desc = "Verify compilation and submit via cph-submit",
+      desc = "Verify compilation, comment dbg, and submit via cph-submit",
+    },
+    {
+      "<leader>rc",
+      function()
+        local filepath = vim.fn.expand("%:p")
+        local count = require("config.cph_server").comment_dbg(filepath)
+        vim.notify(string.format("Commented out %d dbg statement(s)", count), vim.log.levels.INFO, { title = "Debug" })
+      end,
+      desc = "Comment all dbg statements in buffer",
+    },
+    {
+      "<leader>rC",
+      function()
+        local filepath = vim.fn.expand("%:p")
+        local count = require("config.cph_server").uncomment_dbg(filepath)
+        vim.notify(string.format("Uncommented %d dbg statement(s)", count), vim.log.levels.INFO, { title = "Debug" })
+      end,
+      desc = "Uncomment all dbg statements in buffer",
     },
   },
 }

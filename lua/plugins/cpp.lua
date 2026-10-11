@@ -1,9 +1,30 @@
 return {
-  -- 1. Fast completion: disable popup inside comments, auto-suggest #defines/types/code
+  -- 1. Fast completion: prioritize exact matches & CP macros, disable popup inside comments
   {
     "saghen/blink.cmp",
     opts = function(_, opts)
+      opts.fuzzy = opts.fuzzy or {}
+      opts.fuzzy.sorts = {
+        "exact",
+        "score",
+        "sort_text",
+      }
+
       opts.sources = opts.sources or {}
+      opts.sources.providers = opts.sources.providers or {}
+      opts.sources.providers.snippets = {
+        name = "Snippets",
+        score_offset = 10,
+      }
+      opts.sources.providers.buffer = {
+        name = "Buffer",
+        score_offset = 5,
+      }
+      opts.sources.providers.lsp = {
+        name = "LSP",
+        score_offset = 0,
+      }
+
       opts.sources.default = function()
         local success, node = pcall(vim.treesitter.get_node)
         if
@@ -13,7 +34,7 @@ return {
         then
           return {}
         end
-        return { "lsp", "path", "snippets", "buffer" }
+        return { "snippets", "lsp", "buffer", "path" }
       end
     end,
   },

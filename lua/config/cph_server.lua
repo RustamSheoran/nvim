@@ -159,8 +159,126 @@ function M.start()
   end
 end
 
+function M.comment_dbg(filepath)
+  local bufnr = vim.fn.bufnr(filepath)
+  local modified = false
+  local count = 0
+
+  if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
+    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    local new_lines = {}
+    for _, line in ipairs(lines) do
+      local indent, rest = line:match("^(%s*)(.-)$")
+      if rest and not rest:match("^//") and not rest:match("^#") and rest:match("%f[%a_]dbg%s*%(") then
+        table.insert(new_lines, indent .. "// " .. rest)
+        count = count + 1
+        modified = true
+      else
+        table.insert(new_lines, line)
+      end
+    end
+    if modified then
+      vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, new_lines)
+      vim.cmd("silent! write")
+    end
+  else
+    local f = io.open(filepath, "r")
+    if f then
+      local content = f:read("*a")
+      f:close()
+      local new_lines = {}
+      for line in content:gmatch("([^\r\n]*)\r?\n?") do
+        local indent, rest = line:match("^(%s*)(.-)$")
+        if rest and not rest:match("^//") and not rest:match("^#") and rest:match("%f[%a_]dbg%s*%(") then
+          table.insert(new_lines, indent .. "// " .. rest)
+          count = count + 1
+          modified = true
+        else
+          table.insert(new_lines, line)
+        end
+      end
+      if modified then
+        local out = io.open(filepath, "w")
+        if out then
+          out:write(table.concat(new_lines, "\n") .. "\n")
+          out:close()
+        end
+      end
+    end
+  end
+  return count
+end
+
+function M.uncomment_dbg(filepath)
+  local bufnr = vim.fn.bufnr(filepath)
+  local modified = false
+  local count = 0
+
+  if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
+    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    local new_lines = {}
+    for _, line in ipairs(lines) do
+      local indent, rest = line:match("^(%s*)(.-)$")
+      if rest then
+        local uncommented = rest:match("^//%s*(%f[%a_]dbg%s*%b().*)$")
+        if uncommented then
+          table.insert(new_lines, indent .. uncommented)
+          count = count + 1
+          modified = true
+        else
+          table.insert(new_lines, line)
+        end
+      else
+        table.insert(new_lines, line)
+      end
+    end
+    if modified then
+      vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, new_lines)
+      vim.cmd("silent! write")
+    end
+  else
+    local f = io.open(filepath, "r")
+    if f then
+      local content = f:read("*a")
+      f:close()
+      local new_lines = {}
+      for line in content:gmatch("([^\r\n]*)\r?\n?") do
+        local indent, rest = line:match("^(%s*)(.-)$")
+        if rest then
+          local uncommented = rest:match("^//%s*(%f[%a_]dbg%s*%b().*)$")
+          if uncommented then
+            table.insert(new_lines, indent .. uncommented)
+            count = count + 1
+            modified = true
+          else
+            table.insert(new_lines, line)
+          end
+        else
+          table.insert(new_lines, line)
+        end
+      end
+      if modified then
+        local out = io.open(filepath, "w")
+        if out then
+          out:write(table.concat(new_lines, "\n") .. "\n")
+          out:close()
+        end
+      end
+    end
+  end
+  return count
+end
+
 function M.submit(url, filepath)
-  vim.notify("Step 1/2: Checking syntax...", vim.log.levels.INFO, { title = "Submit" })
+  -- Step 1/3: Comment all dbg statements
+  local dbg_count = M.comment_dbg(filepath)
+  if dbg_count > 0 then
+    vim.notify(string.format("Step 1/3: Commented out %d dbg statement(s)...", dbg_count), vim.log.levels.INFO, { title = "Submit" })
+  else
+    vim.notify("Step 1/3: No active dbg statements found...", vim.log.levels.INFO, { title = "Submit" })
+  end
+
+  vim.notify("Step 2/3: Checking syntax...", vim.log.levels.INFO, { title = "Submit" })
 
   -- 1. Fast Syntax Check
   vim.system({ "g++", "-std=c++23", "-fsyntax-only", filepath }, { text = true }, function(syn_obj)
@@ -173,7 +291,7 @@ function M.submit(url, filepath)
 
     -- 2. AddressSanitizer & UndefinedBehaviorSanitizer Sanity Check
     vim.schedule(function()
-      vim.notify("Step 2/2: Running Sanitizer check (ASan/UBSan)...", vim.log.levels.INFO, { title = "Submit" })
+      vim.notify("Step 3/3: Running Sanitizer check (ASan/UBSan)...", vim.log.levels.INFO, { title = "Submit" })
     end)
 
     local asan_bin = "/tmp/__cph_asan_check"

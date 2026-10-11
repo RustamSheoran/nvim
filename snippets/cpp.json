@@ -2518,5 +2518,182 @@
       "    }",
       "};"
     ]
+  },
+  "pb macro": {
+    "prefix": "pb",
+    "body": [
+      "pb()"
+    ],
+    "description": "#define pb push_back (insert into vector)"
+  },
+  "eb macro": {
+    "prefix": "eb",
+    "body": [
+      "eb()"
+    ],
+    "description": "#define eb emplace_back"
+  },
+  "fi macro": {
+    "prefix": "fi",
+    "body": [
+      "fi"
+    ],
+    "description": "#define fi first"
+  },
+  "se macro": {
+    "prefix": "se",
+    "body": [
+      "se"
+    ],
+    "description": "#define se second"
+  },
+  "mp macro": {
+    "prefix": "mp",
+    "body": [
+      "mp(, )"
+    ],
+    "description": "#define mp make_pair"
+  },
+  "sp macro": {
+    "prefix": "sp",
+    "body": [
+      "sp"
+    ],
+    "description": "#define sp ' '"
+  },
+  "nl macro": {
+    "prefix": "nl",
+    "body": [
+      "nl"
+    ],
+    "description": "#define nl '\n'"
+  },
+  "rall macro": {
+    "prefix": "rall",
+    "body": [
+      "rall()"
+    ],
+    "description": "#define rall(x) (x).rbegin(), (x).rend()"
+  },
+  "roff reverse loop": {
+    "prefix": "roff",
+    "body": [
+      "roff(, , ) {",
+      "    bash",
+      "}"
+    ],
+    "description": "#define roff(i, a, b) for (int i = (b); i >= (a); --i)"
+  },
+  "vi type": {
+    "prefix": "vi",
+    "body": [
+      "vi "
+    ],
+    "description": "using vi = vector<int>"
+  },
+  "vll type": {
+    "prefix": "vll",
+    "body": [
+      "vll "
+    ],
+    "description": "using vll = vector<ll>"
+  },
+  "vvi type": {
+    "prefix": "vvi",
+    "body": [
+      "vvi "
+    ],
+    "description": "using vvi = vector<vi>"
+  },
+  "vvll type": {
+    "prefix": "vvll",
+    "body": [
+      "vvll "
+    ],
+    "description": "using vvll = vector<vll>"
+  },
+  "pii type": {
+    "prefix": "pii",
+    "body": [
+      "pii "
+    ],
+    "description": "using pii = pair<int, int>"
+  },
+  "pll type": {
+    "prefix": "pll",
+    "body": [
+      "pll "
+    ],
+    "description": "using pll = pair<ll, ll>"
+  },
+  "vpii type": {
+    "prefix": "vpii",
+    "body": [
+      "vpii "
+    ],
+    "description": "using vpii = vector<pii>"
+  },
+  "vpll type": {
+    "prefix": "vpll",
+    "body": [
+      "vpll "
+    ],
+    "description": "using vpll = vector<pll>"
+  },
+  "min_pq type": {
+    "prefix": "min_pq",
+    "body": [
+      "min_pq<> "
+    ],
+    "description": "min priority queue template alias"
+  },
+  "cdiv helper": {
+    "prefix": "cdiv",
+    "body": [
+      "cdiv(, )"
+    ],
+    "description": "ceiling division: a / b + ((a ^ b) > 0 && a % b)"
+  },
+  "fdiv helper": {
+    "prefix": "fdiv",
+    "body": [
+      "fdiv(, )"
+    ],
+    "description": "floor division: a / b - ((a ^ b) < 0 && a % b)"
+  },
+  "mod_add helper": {
+    "prefix": "mod_add",
+    "body": [
+      "mod_add(, )"
+    ],
+    "description": "(a % m + b % m + m) % m"
+  },
+  "mod_sub helper": {
+    "prefix": "mod_sub",
+    "body": [
+      "mod_sub(, )"
+    ],
+    "description": "(a % m - b % m + m) % m"
+  },
+  "mod_mul helper": {
+    "prefix": "mod_mul",
+    "body": [
+      "mod_mul(, )"
+    ],
+    "description": "(i128)a * b % m"
+  },
+  "mod_inv helper": {
+    "prefix": "mod_inv",
+    "body": [
+      "mod_inv()"
+    ],
+    "description": "modular inverse using binpow"
+  },
+  "mod_div helper": {
+    "prefix": "mod_div",
+    "body": [
+      "mod_div(, )"
+    ],
+    "description": "modular division using mod_inv"
   }
 }
