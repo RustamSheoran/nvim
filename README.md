@@ -89,15 +89,20 @@ Instead of bloating your base template with thousands of lines of unused algorit
 - **Interactive Picker (`<leader>rt` or `rt`):** Press `<leader>rt` (or `rt`) in normal mode to open a fuzzy picker showing every algorithm, its prefix, and a live syntax-highlighted code preview. Press `<Enter>` on any algorithm to insert it instantly at your cursor!
 - **Insert Mode Completion:** Type any prefix below while coding and press `<Enter>` or `<Tab>` to expand it directly.
 - **Find Files Across PC (`<Space><Space>`):** Press Space twice to open the fuzzy file finder across your entire home directory.
+- **CP Template Shortforms:** Every snippet uses the shortforms from your CP template (`vvi`, `vpll`, `vvll`, `pb`, `eb`, `each`, `rep`, `rep1`, `rrep`, `min_pq`, `sz`, `all`, `INFLL`, `chmin`, `chmax`) for ultra-compact, clean code.
 
 | Prefix | Algorithm / Data Structure | Details |
 |---|---|---|
 | `cp` | **Default CP Template** | Clean, modern base template (~110 lines) |
-| `dfs` / `treedfs` | **Tree DFS** | Lambda DFS with parent parameter and tabstops |
-| `gdfs` / `graph_dfs` | **Graph DFS** | Lambda DFS with visited tracking |
-| `bfs` | **Breadth-First Search** | Unweighted shortest path on graphs |
-| `01bfs` | **0-1 BFS** | Deque-based shortest path on 0/1 weighted graphs |
-| `dijkstra` / `dijk` | **Dijkstra Algorithm** | Priority queue shortest path on weighted graphs |
+| `adj` / `graph` | **Read Graph (Adjacency List)**| Declares `vvi adj(n + 1)` and reads $m$ edges |
+| `tree` / `readtree` | **Read Tree** | Declares `vvi adj(n + 1)` and reads $n - 1$ tree edges |
+| `wadj` / `wgraph` | **Read Weighted Graph** | Declares `vector<vpll> adj(n + 1)` and reads $m$ weighted edges |
+| `dfs` / `treedfs` | **Tree DFS** | Self-contained DFS with `adj`, `add_edge`, and `(u, p)` traversal |
+| `gdfs` / `graph_dfs` | **Graph DFS** | Self-contained graph DFS with `adj`, `add_edge`, and `vis` tracking |
+| `bfs` | **Breadth-First Search** | Self-contained BFS with `adj`, `add_edge`, and shortest path `dist` |
+| `01bfs` | **0-1 BFS** | Self-contained 0-1 BFS with weighted `adj`, `add_edge`, and `deque` |
+| `gridbfs` / `bfs2d` | **Grid BFS (2D)** | 2D matrix BFS using template `dx`/`dy` and `rep(d, 4)` |
+| `dijkstra` / `dijk` | **Dijkstra Algorithm** | Self-contained Dijkstra with weighted `adj`, `add_edge`, and `pq` |
 | `topo` / `toposort` | **Topological Sort** | Kahn's algorithm for ordering & cycle detection |
 | `bellman` | **Bellman-Ford** | Negative weight edges & negative cycle detection |
 | `floyd` | **Floyd-Warshall** | All-pairs shortest paths in $\mathcal{O}(V^3)$ |
@@ -117,9 +122,21 @@ Instead of bloating your base template with thousands of lines of unused algorit
 | `phi` / `totient` | **Euler's Totient** | $\phi(N)$ count of coprimes in $\mathcal{O}(\sqrt{N})$ |
 | `primefact` / `factors` | **Prime Factorization** | $\mathcal{O}(\sqrt{N})$ prime factor decomposition |
 | `binpow` / `power` | **Binary Exponentiation** | Modular power with `__int128` overflow protection |
-| `coordcomp` / `compress` | **Coordinate Compression** | Map arbitrary values to $0 \dots K-1$ |
-| `pref2d` | **2D Prefix Sums** | Static 2D grid range sum query in $\mathcal{O}(1)$ |
-| `diffarray` / `diff2d` | **2D Difference Array** | 2D rectangular range increment updates |
+| `pref` / `psum` | **1D Prefix Sum** | Static 1D range sum query lambda in $\mathcal{O}(1)$ with `vll` and `rep` |
+| `diff` / `diff1d` | **1D Difference Array** | Range addition updates with `vll` and `rep` |
+| `pref2d` | **2D Prefix Sums** | Static 2D grid range sum query in $\mathcal{O}(1)$ with `vvll` and `rep` |
+| `diffarray` / `diff2d` | **2D Difference Array** | 2D rectangular range increment updates with `vvll` and `rep1` |
+| `rollback_dsu` / `dsu_rollback` | **Rollback DSU** | DSU with history snapshots and rollback undo |
+| `weighted_dsu` / `pot_dsu` | **Weighted DSU** | Potential DSU tracking element differences |
+| `fenwick2d` / `bit2d` | **2D Fenwick Tree** | 2D BIT point updates and rectangular range sums |
+| `lichao` / `cht` | **Li-Chao Tree** | Dynamic Convex Hull Trick segment tree for line queries |
+| `prim` / `prim_mst` | **Prim's MST** | Priority-queue based Minimum Spanning Tree |
+| `kmp` / `prefix_function` | **KMP Algorithm** | $\pi$ prefix function and substring pattern matching in $\mathcal{O}(N)$ |
+| `zfunc` / `z_function` | **Z-Algorithm** | Linear time string matching $Z$-array in $\mathcal{O}(N)$ |
+| `manacher` / `palindromes` | **Manacher's Algorithm** | Palindromic substring radii in $\mathcal{O}(N)$ |
+| `strhash` / `shash` / `polyhash` | **String Hashing (Double)** | Anti-hack double rolling hash with `MOD1` & `MOD9` in $\mathcal{O}(1)$ |
+| `isprime` / `miller_rabin` | **Miller-Rabin Primality** | Deterministic 64-bit integer primality test in $\mathcal{O}(k \log N)$ |
+| `cycle` / `detect_cycle` | **Cycle Detection** | 3-color DFS directed cycle detection in $\mathcal{O}(V + E)$ |
 | `fastmap` / `hashmap`| **Anti-Hack Hash Table** | 5.5x faster PBDS `gp_hash_table` with `splitmix64` |
 | `oset` / `ordered_set`| **Policy-Based Ordered Set** | PBDS `order_of_key` and `find_by_order` in $\mathcal{O}(\log N)$ |
 | `cpp` | **Full Library Template** | Complete 950-line monolithic library |
