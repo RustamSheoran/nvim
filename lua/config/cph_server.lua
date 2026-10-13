@@ -281,7 +281,7 @@ function M.submit(url, filepath)
   vim.notify("Step 2/3: Checking syntax...", vim.log.levels.INFO, { title = "Submit" })
 
   -- 1. Fast Syntax Check
-  vim.system({ "g++", "-std=c++23", "-fsyntax-only", filepath }, { text = true }, function(syn_obj)
+  vim.system({ "g++", "-std=c++17", "-fsyntax-only", filepath }, { text = true }, function(syn_obj)
     if syn_obj.code ~= 0 then
       vim.schedule(function()
         vim.notify("=== SYNTAX CHECK FAILED: SUBMISSION ABORTED ===\n" .. syn_obj.stderr, vim.log.levels.ERROR, { title = "Submit" })
@@ -295,7 +295,7 @@ function M.submit(url, filepath)
     end)
 
     local asan_bin = "/tmp/__cph_asan_check"
-    vim.system({ "g++", "-O2", "-std=c++23", "-fuse-ld=mold", "-fsanitize=address,undefined", "-g", filepath, "-o", asan_bin }, { text = true }, function(asan_comp)
+    vim.system({ "g++", "-O2", "-std=c++17", "-fuse-ld=mold", "-fsanitize=address,undefined", "-g", filepath, "-o", asan_bin }, { text = true }, function(asan_comp)
       if asan_comp.code ~= 0 then
         vim.schedule(function()
           vim.notify("=== SANITIZER COMPILE FAILED: SUBMISSION ABORTED ===\n" .. asan_comp.stderr, vim.log.levels.ERROR, { title = "Submit" })
@@ -339,7 +339,11 @@ function M.submit(url, filepath)
             empty = false,
             url = url,
             problemName = "",
-            languageId = "91", -- C++23 (GCC 14-64, msys2)
+            -- Codeforces Language IDs:
+            --   "91" -> GNU G++23 14.2 (64 bit, msys2) [Default / Recommended: 64-bit + __int128_t]
+            --   "89" -> GNU G++20 13.2 (64 bit, winlibs)
+            --   "54" -> GNU G++17 7.3.0 (32-bit: __int128_t not supported)
+            languageId = "91",
             sourceCode = source_code,
           }
 

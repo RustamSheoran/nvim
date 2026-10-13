@@ -225,9 +225,9 @@ function M.run()
   local stress_cmd = string.format([[
 cd '%s' && bash -c '
 echo -e "\033[1;34m=== COMPILING %s, brute.cpp, and gen.cpp ===\033[0m"
-g++ -O2 -std=c++23 -fuse-ld=mold "%s" -o __sol || exit 1
-g++ -O2 -std=c++23 -fuse-ld=mold brute.cpp -o __brute || exit 1
-g++ -O2 -std=c++23 -fuse-ld=mold gen.cpp -o __gen || exit 1
+g++ -O2 -std=c++17 -fuse-ld=mold "%s" -o __sol || exit 1
+g++ -O2 -std=c++17 -fuse-ld=mold brute.cpp -o __brute || exit 1
+g++ -O2 -std=c++17 -fuse-ld=mold gen.cpp -o __gen || exit 1
 
 echo -e "\033[1;32m=== STRESS TESTING RUNNING (Press Ctrl+C to stop) ===\033[0m"
 i=1

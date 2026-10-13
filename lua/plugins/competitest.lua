@@ -29,7 +29,7 @@ return {
       cpp = vim.fn.expand("~/.config/nvim/templates/cp_template.cpp"),
     },
     compile_command = {
-      cpp = { exec = "g++", args = { "-O2", "-std=c++23", "-fuse-ld=mold", "$(FNAME)", "-o", "$(FNOEXT)" } },
+      cpp = { exec = "g++", args = { "-O2", "-std=c++17", "-fuse-ld=mold", "$(FNAME)", "-o", "$(FNOEXT)" } },
     },
     run_command = {
       cpp = { exec = "./$(FNOEXT)" },
@@ -109,7 +109,7 @@ return {
         local san_cmd = string.format([[
 cd '%s' && bash -c '
 echo -e "\033[1;34m=== COMPILING WITH ADDRESS & UNDEFINED BEHAVIOR SANITIZERS ===\033[0m"
-g++ -O2 -std=c++23 -fsanitize=address,undefined -g "%s" -o __san || { read -p "Compilation failed! Press Enter..." dummy; exit 1; }
+g++ -O2 -std=c++17 -fsanitize=address,undefined -g "%s" -o __san || { read -p "Compilation failed! Press Enter..." dummy; exit 1; }
 
 echo -e "\033[1;32m=== RUNNING WITH SANITIZERS (Catches Out-of-Bounds & UB) ===\033[0m"
 if [ -f __debug_in.txt ]; then
