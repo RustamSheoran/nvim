@@ -36,6 +36,11 @@ return {
         end
         return { "snippets", "lsp", "buffer", "path" }
       end
+
+      opts.keymap = opts.keymap or {}
+      -- Keep Tab as standard 2-space indentation / snippet navigation; remove Copilot accept from Tab
+      opts.keymap["<Tab>"] = { "snippet_forward", "fallback" }
+      opts.keymap["<S-Tab>"] = { "snippet_backward", "fallback" }
     end,
   },
 
@@ -72,7 +77,7 @@ return {
     },
   },
 
-  -- 4. Google C++ code formatting
+  -- 4. Google C++ code formatting: Keep empty functions open
   {
     "stevearc/conform.nvim",
     opts = {
@@ -82,8 +87,37 @@ return {
       },
       formatters = {
         ["clang-format"] = {
-          prepend_args = { "--style=Google" },
+          prepend_args = {
+            "--style={BasedOnStyle: Google, AllowShortFunctionsOnASingleLine: InlineOnly, KeepEmptyLines: {AtStartOfBlock: true}}",
+          },
         },
+      },
+    },
+  },
+
+  -- 5. GitHub Copilot: Native inline ghost suggestions (toggled via <leader>tc)
+  {
+    "zbirenbaum/copilot.lua",
+    opts = {
+      suggestion = {
+        enabled = true,
+        auto_trigger = true,
+        hide_during_completion = false,
+        debounce = 75,
+        keymap = {
+          accept = "<M-l>",
+          accept_word = "<M-w>",
+          accept_line = "<M-j>",
+          next = "<M-]>",
+          prev = "<M-[>",
+          dismiss = "<C-]>",
+        },
+      },
+      panel = { enabled = false },
+      filetypes = {
+        markdown = true,
+        help = true,
+        ["*"] = true,
       },
     },
   },

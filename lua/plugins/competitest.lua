@@ -29,7 +29,7 @@ return {
       cpp = vim.fn.expand("~/.config/nvim/templates/cp_template.cpp"),
     },
     compile_command = {
-      cpp = { exec = "g++", args = { "-O2", "-std=c++23", "$(FNAME)", "-o", "$(FNOEXT)" } },
+      cpp = { exec = "g++", args = { "-O2", "-std=c++23", "-fuse-ld=mold", "$(FNAME)", "-o", "$(FNOEXT)" } },
     },
     run_command = {
       cpp = { exec = "./$(FNOEXT)" },

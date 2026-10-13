@@ -25,8 +25,8 @@ This setup replaces the need for VS Code and heavy Node.js background processes 
 - **Neovim** (>= 0.10)
 - **GCC** (`g++`) with C++23 support
 - **Browser Extensions:**
-  1. [Competitive Companion](https://github.com/jmerle/competitive-companion) — Parses problem statements and sample test cases from Codeforces, AtCoder, etc.
-  2. [cph-submit](https://github.com/agrawal-d/cph-submit) — Automates submitting solution code to Codeforces directly from the editor.
+  1. [Competitive Companion](https://github.com/jmerle/competitive-companion) -> Parses problem statements and sample test cases from Codeforces, AtCoder, etc.
+  2. [cph-submit](https://github.com/agrawal-d/cph-submit) -> Automates submitting solution code to Codeforces directly from the editor.
 
 ### Installation
 
@@ -42,11 +42,10 @@ nvim
 ```
 
 ### GitHub Copilot Setup
-This config includes GitHub Copilot for ghost text suggestions. On first setup, authenticate Copilot by running:
-```vim
-:Copilot auth
-```
-Follow the browser prompts to link your GitHub account. You can toggle Copilot ON/OFF at any time during contests using `<leader>tc`.
+This config includes GitHub Copilot for inline ghost text suggestions across **all programming languages** (C++, Python, TypeScript, Java, HTML, Go, Rust, etc.).
+* **Log In:** Press **`<leader>tl`** -> your device code is auto-copied to clipboard, paste it at [github.com/login/device](https://github.com/login/device)
+* **Log Out:** Press **`<leader>to`** -> signs out of Copilot anytime
+* **Contest Mode:** Press **`<leader>tc`** -> instantly kills Copilot before rated contests to comply with anti-cheating rules
 
 ---
 
@@ -217,7 +216,7 @@ When your solution is ready to submit:
 1. Press `<leader>rs`.
 2. **Step 1: Auto-Comment Debugs:** Automatically finds and comments out all active `dbg(...)` statements (e.g. `// dbg(x);`) in your buffer without deleting them, then saves your file.
 3. **Step 2: Syntax Check:** Runs `g++ -std=c++23 -fsyntax-only`. If there is a typo or missing semicolon, submission aborts immediately.
-4. **Step 3: Sanitizer Sanity Check:** Compiles with `-fsanitize=address,undefined -g` and runs against all saved sample testcases. If an out-of-bounds bug or segfault occurs on the samples, submission is aborted and the exact line number is displayed—saving you from an immediate 50-point penalty on Codeforces!
+4. **Step 3: Sanitizer Sanity Check:** Compiles with `-fsanitize=address,undefined -g` and runs against all saved sample testcases. If an out-of-bounds bug or segfault occurs on the samples, submission is aborted and the exact line number is displayed, saving you from an immediate 50-point penalty on Codeforces!
 5. If clean, Neovim transmits the code to the `cph-submit` browser extension, submitting it to Codeforces automatically.
 
 > [!TIP]
@@ -225,8 +224,24 @@ When your solution is ready to submit:
 > - `<leader>rc`: Comment all active `dbg(...)` statements in the file.
 > - `<leader>rC`: Uncomment all `dbg(...)` statements in the file.
 
-### 9. Contest Toggles & Visual Customizations
-- **Copilot Toggle (`<leader>tc`):** Instantly toggle GitHub Copilot ON or OFF during rated contests to avoid rule violations.
+### 9. GitHub Copilot & Contest Mode (<leader>t)
+GitHub Copilot is integrated with native inline ghost text across all programming languages (C++, Python, TypeScript, Java, HTML). It is decoupled from the popup menu, leaving snippets and standard 2-space `<Tab>` untouched.
+
+Key features and controls:
+* `<leader>tc` -> Master Contest Mode switch (turns Copilot completely off during rated contests to comply with anti-cheat rules, press again to re-enable)
+* `<leader>ta` -> Toggle Auto-Trigger (switches between continuous inline ghost text and on-demand mode)
+* `<leader>tr` -> Request suggestion manually (blocked automatically with a warning if Contest Mode is active)
+* `<leader>ts` -> View Copilot connection and auth status
+* `<leader>tp` -> Open suggestions panel with 10 alternative completions
+* `<leader>tl` -> Log in via GitHub device flow (copies code to clipboard)
+* `<leader>to` -> Log out and clear session tokens
+* `Alt + l` -> Accept entire ghost suggestion
+* `Alt + w` -> Accept next word
+* `Alt + j` -> Accept next line
+* `Alt + ]` / `Alt + [` -> Cycle next or previous suggestion
+* `Ctrl + ]` -> Dismiss suggestion
+
+### 10. Editor Ergonomics & Visual Customizations
 - **2-Second Idle Auto-Save:** Pausing typing for 2 seconds automatically saves the buffer in the background without interrupting your typing or shifting cursor position.
 - **Typo Protection:** Aliased common Shift-typo commands (`:Q` $\rightarrow$ `:q`, `:Qa` $\rightarrow$ `:qa`, `:W` $\rightarrow$ `:w`, `:Wq` $\rightarrow$ `:wq`, `:Wa` $\rightarrow$ `:wa`).
 - **Relative Line Numbers:** Active cursor line displays `0`, while lines above and below count upward `1, 2, 3...` for fast vertical jumping (`15j`, `8k`).
@@ -252,6 +267,18 @@ When your solution is ready to submit:
 | `<leader>rc` | **Comment Debugs** | Comments out all active `dbg(...)` calls in the buffer |
 | `<leader>rC` | **Uncomment Debugs** | Uncomments all `dbg(...)` calls in the buffer |
 | `<leader>tc` | **Toggle Copilot** | Instantly enable/disable Copilot for contest rules |
+| `<leader>ta` | **Toggle Auto-Trigger** | Toggle auto ghost text vs manual on-demand |
+| `<leader>ts` | **Copilot Status** | View Copilot connection, auth, and model info |
+| `<leader>tp` | **Copilot Panel** | Open 10 alternative completions split panel |
+| `<leader>te` / `<leader>td` | **Enable / Disable** | Force enable or force disable Copilot |
+| `<leader>tr` | **Trigger Suggestion** | Manually request Copilot inline suggestion |
+| `<leader>tl` | **Copilot Login** | Initiate GitHub device code auth flow |
+| `<leader>to` | **Copilot Logout** | Sign out of GitHub Copilot |
+| `<M-l>` *(Insert)* | **Accept Suggestion** | Accept the entire inline ghost text |
+| `<M-w>` *(Insert)* | **Accept Word** | Accept the next word of ghost text |
+| `<M-j>` *(Insert)* | **Accept Line** | Accept the next line of ghost text |
+| `<M-]>` / `<M-[>` | **Next / Prev** | Cycle between alternative suggestions |
+| `<C-]>` *(Insert)* | **Dismiss** | Dismiss active ghost suggestion |
 | `<leader>cf` | **Format Code** | Formats buffer with Google C++ Style |
 
 ---

@@ -2,19 +2,124 @@
 -- Default keymaps that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/keymaps.lua
 -- Add any additional keymaps here
 
--- Toggle GitHub Copilot ON/OFF (Contest Mode)
+-- ==================== Copilot & Contest Mode Menu (<leader>t) ====================
 local copilot_enabled = true
+
+-- <leader>tc: Fast Contest Mode toggle
 vim.keymap.set("n", "<leader>tc", function()
-  if copilot_enabled then
+  local client_ok, client = pcall(require, "copilot.client")
+  local is_disabled = client_ok and client.is_disabled and client.is_disabled()
+  if is_disabled == nil then
+    is_disabled = not copilot_enabled
+  end
+
+  if not is_disabled then
     vim.cmd("Copilot disable")
     copilot_enabled = false
-    vim.notify("Copilot disabled (Contest Mode)", vim.log.levels.WARN, { title = "Copilot" })
+    pcall(function()
+      require("copilot.suggestion").clear_preview()
+    end)
+    vim.notify("Copilot disabled (Contest Mode: AI Off)", vim.log.levels.WARN, { title = "Contest Mode" })
   else
     vim.cmd("Copilot enable")
     copilot_enabled = true
-    vim.notify("Copilot enabled", vim.log.levels.INFO, { title = "Copilot" })
+    vim.notify("Copilot enabled (Ghost Suggestions Active)", vim.log.levels.INFO, { title = "Copilot" })
   end
 end, { desc = "Toggle Copilot (Contest Mode)" })
+
+-- <leader>ta: Toggle Auto-Trigger (Auto popup vs Manual on-demand)
+vim.keymap.set("n", "<leader>ta", function()
+  local ok, suggestion = pcall(require, "copilot.suggestion")
+  if ok and suggestion.toggle_auto_trigger then
+    suggestion.toggle_auto_trigger()
+    local state = vim.b.copilot_suggestion_auto_trigger
+    if state == false then
+      vim.notify("Auto-trigger: OFF (Manual on-demand)", vim.log.levels.WARN, { title = "Copilot" })
+    else
+      vim.notify("Auto-trigger: ON (Inline ghost text)", vim.log.levels.INFO, { title = "Copilot" })
+    end
+  else
+    vim.notify("Copilot suggestion module not loaded", vim.log.levels.ERROR, { title = "Copilot" })
+  end
+end, { desc = "Toggle Auto-Trigger" })
+
+-- <leader>ts: Copilot Status (Auth, Connection, Model)
+vim.keymap.set("n", "<leader>ts", function()
+  vim.cmd("Copilot status")
+end, { desc = "Copilot Status" })
+
+-- <leader>tp: Suggestions Panel (10 alternatives)
+vim.keymap.set("n", "<leader>tp", function()
+  vim.cmd("Copilot panel")
+end, { desc = "Copilot Suggestions Panel" })
+
+-- <leader>te: Force Enable Copilot
+vim.keymap.set("n", "<leader>te", function()
+  vim.cmd("Copilot enable")
+  copilot_enabled = true
+  vim.notify("Copilot enabled", vim.log.levels.INFO, { title = "Copilot" })
+end, { desc = "Enable Copilot" })
+
+-- <leader>td: Force Disable Copilot
+vim.keymap.set("n", "<leader>td", function()
+  vim.cmd("Copilot disable")
+  copilot_enabled = false
+  pcall(function()
+    require("copilot.suggestion").clear_preview()
+  end)
+  vim.notify("Copilot disabled", vim.log.levels.WARN, { title = "Copilot" })
+end, { desc = "Disable Copilot" })
+
+-- <leader>tr: Refresh / Trigger suggestion manually
+vim.keymap.set("n", "<leader>tr", function()
+  local client_ok, client = pcall(require, "copilot.client")
+  local is_disabled = client_ok and client.is_disabled and client.is_disabled()
+  if is_disabled == nil then
+    is_disabled = not copilot_enabled
+  end
+
+  if is_disabled then
+    vim.notify("Cannot trigger: Copilot is disabled (Contest Mode). Press <leader>tc to enable.", vim.log.levels.WARN, { title = "Contest Mode" })
+    return
+  end
+
+  local ok, suggestion = pcall(require, "copilot.suggestion")
+  if ok and suggestion.next then
+    suggestion.next()
+    vim.notify("Requested Copilot suggestion", vim.log.levels.INFO, { title = "Copilot" })
+  end
+end, { desc = "Trigger Copilot Suggestion" })
+
+-- <leader>tl: Copilot Login (GitHub Device Code Flow)
+local function copilot_login()
+  local client_ok, client = pcall(require, "copilot.client")
+  if client_ok and client.is_disabled and client.is_disabled() then
+    vim.cmd("Copilot enable")
+    copilot_enabled = true
+  end
+  vim.cmd("Copilot auth")
+end
+
+vim.keymap.set("n", "<leader>tl", copilot_login, { desc = "Copilot Login (GitHub Auth)" })
+
+-- <leader>to: Copilot Logout (Sign Out)
+local function copilot_logout()
+  vim.cmd("Copilot auth signout")
+  pcall(function()
+    require("copilot.suggestion").clear_preview()
+  end)
+  vim.notify("Signed out of GitHub Copilot.", vim.log.levels.WARN, { title = "Copilot Logout" })
+end
+
+vim.keymap.set("n", "<leader>to", copilot_logout, { desc = "Copilot Logout (Sign Out)" })
+
+-- Register WhichKey group description
+pcall(function()
+  local wk = require("which-key")
+  wk.add({
+    { "<leader>t", group = "Contest / Copilot" },
+  })
+end)
 
 -- Find Files Across PC / Home (<leader><leader>)
 vim.keymap.set("n", "<leader><leader>", function()

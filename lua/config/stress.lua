@@ -225,9 +225,9 @@ function M.run()
   local stress_cmd = string.format([[
 cd '%s' && bash -c '
 echo -e "\033[1;34m=== COMPILING %s, brute.cpp, and gen.cpp ===\033[0m"
-g++ -O2 -std=c++23 "%s" -o __sol || exit 1
-g++ -O2 -std=c++23 brute.cpp -o __brute || exit 1
-g++ -O2 -std=c++23 gen.cpp -o __gen || exit 1
+g++ -O2 -std=c++23 -fuse-ld=mold "%s" -o __sol || exit 1
+g++ -O2 -std=c++23 -fuse-ld=mold brute.cpp -o __brute || exit 1
+g++ -O2 -std=c++23 -fuse-ld=mold gen.cpp -o __gen || exit 1
 
 echo -e "\033[1;32m=== STRESS TESTING RUNNING (Press Ctrl+C to stop) ===\033[0m"
 i=1
@@ -263,9 +263,25 @@ done
 ]], dir, sol_name, sol_name)
 
   if Snacks and Snacks.terminal then
-    Snacks.terminal.open(stress_cmd, { cwd = dir })
+    Snacks.terminal.open(stress_cmd, {
+      cwd = dir,
+      auto_close = true,
+      win = {
+        on_buf = function(self)
+          vim.keymap.set("n", "<CR>", function()
+            self:close()
+          end, { buffer = self.buf, silent = true, desc = "Close terminal" })
+          vim.keymap.set("n", "q", function()
+            self:close()
+          end, { buffer = self.buf, silent = true, desc = "Close terminal" })
+        end,
+      },
+    })
   else
     vim.cmd("botright 15split | terminal " .. stress_cmd)
+    local buf = vim.api.nvim_get_current_buf()
+    vim.keymap.set("n", "<CR>", "<cmd>close<CR>", { buffer = buf, silent = true })
+    vim.keymap.set("n", "q", "<cmd>close<CR>", { buffer = buf, silent = true })
   end
 end
 

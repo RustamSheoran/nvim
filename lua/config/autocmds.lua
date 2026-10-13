@@ -93,3 +93,33 @@ vim.api.nvim_create_autocmd("InsertLeave", {
   end,
 })
 
+-- Keep void solve() { ... } with a clean empty line when empty
+vim.api.nvim_create_autocmd("BufWritePost", {
+  pattern = { "*.cpp" },
+  callback = function(args)
+    local buf = args.buf
+    if not vim.api.nvim_buf_is_valid(buf) or vim.bo[buf].buftype ~= "" then
+      return
+    end
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local modified = false
+    for i, line in ipairs(lines) do
+      if line:match("^void%s+solve%s*%(%s*%)%s*%{%s*%}%s*$") then
+        lines[i] = "void solve() {"
+        table.insert(lines, i + 1, "    ")
+        table.insert(lines, i + 2, "}")
+        modified = true
+        break
+      elseif line:match("^void%s+solve%s*%(%s*%)%s*%{%s*$") and lines[i + 1] and lines[i + 1]:match("^%}%s*$") then
+        table.insert(lines, i + 1, "    ")
+        modified = true
+        break
+      end
+    end
+    if modified then
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      vim.cmd("silent! noautocmd write")
+    end
+  end,
+})
+

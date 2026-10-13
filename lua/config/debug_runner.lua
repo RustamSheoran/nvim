@@ -84,7 +84,7 @@ echo ""
     debug_cmd = string.format([[
 cd '%s' && bash -c '
 echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG) ===\033[0m"
-g++ -O2 -std=c++23 -DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
+g++ -O2 -std=c++23 -fuse-ld=mold -DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
 
 %s
 echo -e "\033[1;34m==================================================\033[0m"
@@ -103,7 +103,7 @@ fi
     debug_cmd = string.format([[
 cd '%s' && bash -c '
 echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG) ===\033[0m"
-g++ -O2 -std=c++23 -DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
+g++ -O2 -std=c++23 -fuse-ld=mold -DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
 
 echo -e "\033[1;32m=== INTERACTIVE RUN (./__debug) ===\033[0m"
 echo -e "\033[0;36mType / paste input and press Enter (Ctrl+D for EOF, Ctrl+C to stop):\033[0m"
@@ -115,9 +115,25 @@ read -p "Process exited. Press Enter to close window..." dummy
   end
 
   if Snacks and Snacks.terminal then
-    Snacks.terminal.open(debug_cmd, { cwd = dir })
+    Snacks.terminal.open(debug_cmd, {
+      cwd = dir,
+      auto_close = true,
+      win = {
+        on_buf = function(self)
+          vim.keymap.set("n", "<CR>", function()
+            self:close()
+          end, { buffer = self.buf, silent = true, desc = "Close terminal" })
+          vim.keymap.set("n", "q", function()
+            self:close()
+          end, { buffer = self.buf, silent = true, desc = "Close terminal" })
+        end,
+      },
+    })
   else
     vim.cmd("botright 15split | terminal " .. debug_cmd)
+    local buf = vim.api.nvim_get_current_buf()
+    vim.keymap.set("n", "<CR>", "<cmd>close<CR>", { buffer = buf, silent = true })
+    vim.keymap.set("n", "q", "<cmd>close<CR>", { buffer = buf, silent = true })
   end
 end
 

@@ -295,7 +295,7 @@ function M.submit(url, filepath)
     end)
 
     local asan_bin = "/tmp/__cph_asan_check"
-    vim.system({ "g++", "-O2", "-std=c++23", "-fsanitize=address,undefined", "-g", filepath, "-o", asan_bin }, { text = true }, function(asan_comp)
+    vim.system({ "g++", "-O2", "-std=c++23", "-fuse-ld=mold", "-fsanitize=address,undefined", "-g", filepath, "-o", asan_bin }, { text = true }, function(asan_comp)
       if asan_comp.code ~= 0 then
         vim.schedule(function()
           vim.notify("=== SANITIZER COMPILE FAILED: SUBMISSION ABORTED ===\n" .. asan_comp.stderr, vim.log.levels.ERROR, { title = "Submit" })
