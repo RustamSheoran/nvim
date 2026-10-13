@@ -335,11 +335,17 @@ Key features and controls:
 
 ## Default Template (`cp_template.cpp`)
 
-Here is the clean default template automatically injected into every new problem (compiles in **~0.9s**):
+Here is the clean default template automatically injected into every new problem (compiles in **~0.32s**):
 
 ```cpp
+// Check my Neovim config at https://github.com/RustamSheoran/nvim
 #include <bits/stdc++.h>
 #include <cassert>
+
+#if defined(__GNUC__) && defined(__x86_64__)
+#pragma GCC optimize("O3,unroll-loops")
+#pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
+#endif
 
 using namespace std;
 
@@ -386,6 +392,18 @@ const int INF  = 1e9 + 7;
 // ==================== Grid Directions ====================
 const int dx[4] = {1, 0, -1, 0};
 const int dy[4] = {0, 1, 0, -1};
+
+// ==================== Bit Operations (Fast Builtins) ====================
+int topbit(int x)   { return x == 0 ? -1 : 31 - __builtin_clz(x); }
+int topbit(ll x)    { return x == 0 ? -1 : 63 - __builtin_clzll(x); }
+int topbit(ull x)   { return x == 0 ? -1 : 63 - __builtin_clzll(x); }
+int botbit(int x)   { return x == 0 ? 32 : __builtin_ctz(x); }
+int botbit(ll x)    { return x == 0 ? 64 : __builtin_ctzll(x); }
+int botbit(ull x)   { return x == 0 ? 64 : __builtin_ctzll(x); }
+int popcount(int x) { return __builtin_popcount(x); }
+int popcount(ll x)  { return __builtin_popcountll(x); }
+int popcount(ull x) { return __builtin_popcountll(x); }
+int bit_width(ll x) { return x == 0 ? 0 : 64 - __builtin_clzll(x); }
 
 // ==================== Safe Div ====================
 ll cdiv(ll a, ll b) { return a / b + ((a ^ b) > 0 && a % b); }
