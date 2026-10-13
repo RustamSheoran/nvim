@@ -93,6 +93,15 @@ sudo g++ -O2 -std=c++23 -x c++-header /usr/include/c++/16/x86_64-pc-linux-gnu/bi
 > On Arch Linux, when `pacman -Syu` eventually upgrades GCC to a newer version in the future, the `/usr/include/c++/16/` path will shift to the new version number.
 > If compilation ever jumps back to ~2.7s after a big system upgrade, simply re-run the two `sudo g++ ...` commands above for the new GCC version path to restore instant ~0.32s compilation.
 
+### 256 MB Stack Size Protection (`ulimit -s 262144`)
+By default, Linux limits process call stacks to 8 MB (`ulimit -s 8192`), causing artificial `Segmentation fault` crashes on deep recursion (e.g. $N = 2 \times 10^5$ Tree DFS), even when code is 100% correct.
+
+All Neovim CP test runners (`debug_runner`, `stress`, and `competitest`) automatically set `ulimit -s 262144` (256 MB):
+- **Matches Codeforces & ICPC:** Exactly matches the standard 256 MB stack limit of online judges.
+- **Essential for Meta Hacker Cup:** In Meta Hacker Cup, problems are run locally on your own machine. Deep recursions will crash without this limit.
+- **Zero Idle Memory Consumption:** In Linux, stack limits are a ceiling, not pre-allocated RAM. A solution using 50 KB uses only 50 KB.
+- **Infinite Recursion Safety:** Accidental runaway recursion hits 256 MB and exits immediately in 0.01s with SIGSEGV, never freezing your PC.
+
 ### Clangd LSP Optimization
 To eliminate typing lag and noisy diagnostics:
 - `--clang-tidy=false`: Disables static analysis warnings (e.g. yellow warnings on `bit_width` or magic numbers) while keeping real syntax errors fully active.

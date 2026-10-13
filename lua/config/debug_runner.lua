@@ -83,6 +83,7 @@ echo ""
   if #tc_list > 0 then
     debug_cmd = string.format([[
 cd '%s' && bash -c '
+ulimit -s 262144 2>/dev/null
 echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG) ===\033[0m"
 g++ -O2 -std=c++17 -fuse-ld=mold -DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
 
@@ -102,6 +103,7 @@ fi
   else
     debug_cmd = string.format([[
 cd '%s' && bash -c '
+ulimit -s 262144 2>/dev/null
 echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG) ===\033[0m"
 g++ -O2 -std=c++17 -fuse-ld=mold -DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
 

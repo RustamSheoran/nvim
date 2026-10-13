@@ -1323,6 +1323,20 @@
     ],
     "description": "dbg(...) inspect variables"
   },
+  "GCC Optimization Pragmas": {
+    "prefix": [
+      "pragma",
+      "opt",
+      "fastcode"
+    ],
+    "body": [
+      "#if defined(__GNUC__) && defined(__x86_64__)",
+      "#pragma GCC optimize(\"O3,unroll-loops\")",
+      "#pragma GCC target(\"avx2,bmi,bmi2,lzcnt,popcnt\")",
+      "#endif"
+    ],
+    "description": "AVX2 SIMD auto-vectorization and loop unrolling for heavy loops"
+  },
   "Tree DFS": {
     "prefix": [
       "treedfs",

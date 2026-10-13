@@ -224,6 +224,7 @@ function M.run()
 
   local stress_cmd = string.format([[
 cd '%s' && bash -c '
+ulimit -s 262144 2>/dev/null
 echo -e "\033[1;34m=== COMPILING %s, brute.cpp, and gen.cpp ===\033[0m"
 g++ -O2 -std=c++17 -fuse-ld=mold "%s" -o __sol || exit 1
 g++ -O2 -std=c++17 -fuse-ld=mold brute.cpp -o __brute || exit 1

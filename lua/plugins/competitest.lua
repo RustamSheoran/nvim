@@ -108,6 +108,7 @@ return {
         local sol_name = vim.fn.fnamemodify(file, ":t")
         local san_cmd = string.format([[
 cd '%s' && bash -c '
+ulimit -s 262144 2>/dev/null
 echo -e "\033[1;34m=== COMPILING WITH ADDRESS & UNDEFINED BEHAVIOR SANITIZERS ===\033[0m"
 g++ -O2 -std=c++17 -fsanitize=address,undefined -g "%s" -o __san || { read -p "Compilation failed! Press Enter..." dummy; exit 1; }
 
