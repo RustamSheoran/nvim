@@ -2,19 +2,19 @@
 
 A high-performance, keyboard-driven Competitive Programming environment built on top of [LazyVim](https://github.com/LazyVim/LazyVim), GCC 16, C++17 / C++23, mold linker, and a native Lua HTTP server.
 
-This setup replaces the need for VS Code and heavy Node.js background processes with a completely native, terminal-based workflow that compiles in **~0.32s**, automatically fetches testcases from your browser, stress-tests solutions against brute forces, runs AddressSanitizer pre-submission checks, and submits directly to Codeforces with a single keystroke.
+This setup replaces the need for VS Code and heavy Node.js background processes with a completely native, terminal-based workflow that compiles in **~0.27s**, automatically fetches testcases from your browser, stress-tests solutions against brute forces, runs AddressSanitizer pre-submission checks, and submits directly to Codeforces with a single keystroke.
 
 ---
 
 ## Key Highlights
 
-- **⚡ Blazing Fast Compilation (~0.32s):** Uses GCC 16 Precompiled Headers (`bits/stdc++.h.gch`) and the ultra-fast `mold` linker with `-O2` to drop compile times from ~2.7s down to ~0.32s.
+- **⚡ Blazing Fast Compilation (~0.27s):** Uses GCC 16 Precompiled Headers (`bits/stdc++.h.gch`) and the ultra-fast `mold` linker with `-O2` to drop compile times from ~2.7s down to ~0.27s.
 - **🚀 Native CPH Server in Lua:** Built-in HTTP listener on port `27121` that communicates directly with browser extensions. Zero external dependencies.
 - **🛡️ 3-Step Pre-Submission Protection:** Running `<leader>rs` automatically comments out all active `dbg(...)` statements (without deleting them), verifies syntax (`-fsyntax-only`), AND compiles with AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases before submitting to prevent accidental penalties.
 - **🔍 Dedicated Local Debug Runner (`<leader>rd`):** Compiles with `-DLOCAL -DDEBUG` to run all saved testcases, printing variables via `dbg(...)`, wrapping outputs in `------`, and measuring execution time in milliseconds.
 - **💥 Automated Stress Testing (`<leader>rb`):** Auto-generates `brute.cpp` (pre-filled with your template) and `gen.cpp` (with random arrays, permutations, strings, and trees). Halts on the first output mismatch and displays the counterexample.
 - **🎨 Google C++ Style Guide:** Globally formatted with `clang-format` (`BasedOnStyle: Google`) on save and via `<leader>cf`.
-- **📦 On-Demand Algorithm Snippets:** Clean, minimal default template (~110 lines) paired with instant LuaSnip snippets for heavy algorithms (`dsu`, `segtree`, `fenwik`, `fastmap`, `oset`, `seive`, `binpow`).
+- **📦 On-Demand Algorithm Snippets:** Ultra-clean, minimal default template (~120 lines) paired with instant snippet triggers / fuzzy picker (`rt`) for algorithms and math helpers (`binpow` lambda, `bitops`, `safediv`, `modmath`, `dsu`, `segtree`, `oset`).
 - **💡 Distraction-Free Editing:** Treesitter-powered completion filtering (no comment words in suggestions), 2-second idle auto-save, relative line numbering (`0` at cursor line), and custom statusline metrics.
 
 ---
@@ -161,7 +161,11 @@ Instead of bloating your base template with thousands of lines of unused algorit
 | `seive` / `prime` | **Linear Sieve & Primes** | $\mathcal{O}(N)$ sieve with SPF & prime factorization |
 | `phi` / `totient` | **Euler's Totient** | $\phi(N)$ count of coprimes in $\mathcal{O}(\sqrt{N})$ |
 | `primefact` / `factors` | **Prime Factorization** | $\mathcal{O}(\sqrt{N})$ prime factor decomposition |
-| `binpow` / `power` | **Binary Exponentiation** | Modular power with `__int128` overflow protection |
+| `binpow` / `power` / `bpow` | **Binary Exponentiation (Lambda)** | Modular power lambda with `__int128` overflow protection |
+| `bitops` / `popcount` / `bits` | **Bit Operations** | Fast builtins suite (`topbit`, `botbit`, `popcount`, `bit_width`) |
+| `safediv` / `cdiv` / `fdiv` | **Safe Division** | Floor & ceiling division safe against negative integers |
+| `modmath` / `mod` / `modular` | **Modular Math Suite** | `binpow`, `mod_add`, `mod_sub`, `mod_mul`, `mod_inv`, `mod_div` |
+| `modlambdas` / `modl` | **Modular Math Lambdas** | Full modular math suite as `solve()`-local lambdas |
 | `pref` / `psum` | **1D Prefix Sum** | Static 1D range sum query lambda in $\mathcal{O}(1)$ with `vll` and `rep` |
 | `diff` / `diff1d` | **1D Difference Array** | Range addition updates with `vll` and `rep` |
 | `pref2d` | **2D Prefix Sums** | Static 2D grid range sum query in $\mathcal{O}(1)$ with `vvll` and `rep` |
@@ -335,7 +339,7 @@ Key features and controls:
 
 ## Default Template (`cp_template.cpp`)
 
-Here is the clean default template automatically injected into every new problem (compiles in **~0.32s**):
+Here is the clean default template automatically injected into every new problem (compiles in **~0.27s**):
 
 ```cpp
 // Check my Neovim config at https://github.com/RustamSheoran/nvim
@@ -392,39 +396,6 @@ const int INF  = 1e9 + 7;
 // ==================== Grid Directions ====================
 const int dx[4] = {1, 0, -1, 0};
 const int dy[4] = {0, 1, 0, -1};
-
-// ==================== Bit Operations (Fast Builtins) ====================
-int topbit(int x)   { return x == 0 ? -1 : 31 - __builtin_clz(x); }
-int topbit(ll x)    { return x == 0 ? -1 : 63 - __builtin_clzll(x); }
-int topbit(ull x)   { return x == 0 ? -1 : 63 - __builtin_clzll(x); }
-int botbit(int x)   { return x == 0 ? 32 : __builtin_ctz(x); }
-int botbit(ll x)    { return x == 0 ? 64 : __builtin_ctzll(x); }
-int botbit(ull x)   { return x == 0 ? 64 : __builtin_ctzll(x); }
-int popcount(int x) { return __builtin_popcount(x); }
-int popcount(ll x)  { return __builtin_popcountll(x); }
-int popcount(ull x) { return __builtin_popcountll(x); }
-int bit_width(ll x) { return x == 0 ? 0 : 64 - __builtin_clzll(x); }
-
-// ==================== Safe Div ====================
-ll cdiv(ll a, ll b) { return a / b + ((a ^ b) > 0 && a % b); }
-ll fdiv(ll a, ll b) { return a / b - ((a ^ b) < 0 && a % b); }
-
-// ==================== Modular Math ====================
-ll binpow(ll a, ll b, ll m = MOD1) {
-    ll res = 1; a %= m;
-    while (b > 0) {
-        if (b & 1) res = (i128)res * a % m;
-        a = (i128)a * a % m;
-        b >>= 1;
-    }
-    return res;
-}
-
-ll mod_add(ll a, ll b, ll m = MOD1) { return (a % m + b % m + m) % m; }
-ll mod_sub(ll a, ll b, ll m = MOD1) { return (a % m - b % m + m) % m; }
-ll mod_mul(ll a, ll b, ll m = MOD1) { return (i128)((a % m + m) % m) * ((b % m + m) % m) % m; }
-ll mod_inv(ll a, ll m = MOD1) { return binpow(a, m - 2, m); }
-ll mod_div(ll a, ll b, ll m = MOD1) { return mod_mul(a, mod_inv(b, m), m); }
 
 // ==================== chmin & chmax ====================
 template <class T, class U = T>

@@ -57,39 +57,6 @@
       "const int dx[4] = {1, 0, -1, 0};",
       "const int dy[4] = {0, 1, 0, -1};",
       "",
-      "// ==================== Bit Operations (Fast Builtins) ====================",
-      "int topbit(int x)   { return x == 0 ? -1 : 31 - __builtin_clz(x); }",
-      "int topbit(ll x)    { return x == 0 ? -1 : 63 - __builtin_clzll(x); }",
-      "int topbit(ull x)   { return x == 0 ? -1 : 63 - __builtin_clzll(x); }",
-      "int botbit(int x)   { return x == 0 ? 32 : __builtin_ctz(x); }",
-      "int botbit(ll x)    { return x == 0 ? 64 : __builtin_ctzll(x); }",
-      "int botbit(ull x)   { return x == 0 ? 64 : __builtin_ctzll(x); }",
-      "int popcount(int x) { return __builtin_popcount(x); }",
-      "int popcount(ll x)  { return __builtin_popcountll(x); }",
-      "int popcount(ull x) { return __builtin_popcountll(x); }",
-      "int bit_width(ll x) { return x == 0 ? 0 : 64 - __builtin_clzll(x); }",
-      "",
-      "// ==================== Safe Div ====================",
-      "template <class T = ll> T cdiv(T a, T b) { return a / b + ((a ^ b) > 0 && a % b); }",
-      "template <class T = ll> T fdiv(T a, T b) { return a / b - ((a ^ b) < 0 && a % b); }",
-      "",
-      "// ==================== Modular Math ====================",
-      "ll binpow(ll a, ll b, ll m = MOD1) {",
-      "    ll res = 1; a %= m;",
-      "    while (b > 0) {",
-      "        if (b & 1) res = (i128)res * a % m;",
-      "        a = (i128)a * a % m;",
-      "        b >>= 1;",
-      "    }",
-      "    return res;",
-      "}",
-      "",
-      "ll mod_add(ll a, ll b, ll m = MOD1) { return (a % m + b % m + m) % m; }",
-      "ll mod_sub(ll a, ll b, ll m = MOD1) { return (a % m - b % m + m) % m; }",
-      "ll mod_mul(ll a, ll b, ll m = MOD1) { return (i128)((a % m + m) % m) * ((b % m + m) % m) % m; }",
-      "ll mod_inv(ll a, ll m = MOD1) { return binpow(a, m - 2, m); }",
-      "ll mod_div(ll a, ll b, ll m = MOD1) { return mod_mul(a, mod_inv(b, m), m); }",
-      "",
       "// ==================== chmin & chmax ====================",
       "template <class T, class U = T>",
       "bool chmin(T &a, U b) { if (b < a) { a = b; return true; } return false; }",
@@ -1234,23 +1201,118 @@
     ],
     "description": "Policy-Based Ordered Set (order_of_key and find_by_order in O(log N))"
   },
-  "Binary Exponentiation (binpow)": {
+  "Binary Exponentiation (binpow lambda)": {
     "prefix": [
       "binpow",
-      "power"
+      "power",
+      "bpow"
     ],
     "body": [
-      "ll binpow(ll a, ll b, ll mod = ${1:MOD1}) {",
-      "    ll res = 1; a %= mod;",
+      "auto binpow = [&](ll a, ll b, ll m = ${1:MOD1}) -> ll {",
+      "    ll res = 1; a %= m;",
       "    while (b > 0) {",
-      "        if (b & 1) res = (i128)res * a % mod;",
-      "        a = (i128)a * a % mod;",
+      "        if (b & 1) res = (i128)res * a % m;",
+      "        a = (i128)a * a % m;",
       "        b >>= 1;",
       "    }",
       "    return res;",
-      "}"
+      "};"
     ],
-    "description": "O(log B) Binary exponentiation with __int128 to prevent overflow"
+    "description": "Lambda: O(log B) Binary exponentiation with __int128 to prevent overflow"
+  },
+  "Bit Operations (Fast Builtins)": {
+    "prefix": [
+      "bitops",
+      "popcount",
+      "topbit",
+      "botbit",
+      "bits"
+    ],
+    "body": [
+      "int topbit(int x)   { return x == 0 ? -1 : 31 - __builtin_clz(x); }",
+      "int topbit(ll x)    { return x == 0 ? -1 : 63 - __builtin_clzll(x); }",
+      "int topbit(ull x)   { return x == 0 ? -1 : 63 - __builtin_clzll(x); }",
+      "int botbit(int x)   { return x == 0 ? 32 : __builtin_ctz(x); }",
+      "int botbit(ll x)    { return x == 0 ? 64 : __builtin_ctzll(x); }",
+      "int botbit(ull x)   { return x == 0 ? 64 : __builtin_ctzll(x); }",
+      "int popcount(int x) { return __builtin_popcount(x); }",
+      "int popcount(ll x)  { return __builtin_popcountll(x); }",
+      "int popcount(ull x) { return __builtin_popcountll(x); }",
+      "int bit_width(ll x) { return x == 0 ? 0 : 64 - __builtin_clzll(x); }"
+    ],
+    "description": "Fast bit operations (topbit, botbit, popcount, bit_width)"
+  },
+  "Safe Division (cdiv, fdiv)": {
+    "prefix": [
+      "safediv",
+      "cdiv",
+      "fdiv"
+    ],
+    "body": [
+      "ll cdiv(ll a, ll b) { return a / b + ((a ^ b) > 0 && a % b); }",
+      "ll fdiv(ll a, ll b) { return a / b - ((a ^ b) < 0 && a % b); }"
+    ],
+    "description": "Safe ceiling and floor division: cdiv(a, b), fdiv(a, b)"
+  },
+  "Modular Math Helpers": {
+    "prefix": [
+      "modmath",
+      "modops",
+      "modular",
+      "mod"
+    ],
+    "body": [
+      "ll binpow(ll a, ll b, ll m = ${1:MOD1}) {",
+      "    ll res = 1; a %= m;",
+      "    while (b > 0) {",
+      "        if (b & 1) res = (i128)res * a % m;",
+      "        a = (i128)a * a % m;",
+      "        b >>= 1;",
+      "    }",
+      "    return res;",
+      "}",
+      "",
+      "ll mod_add(ll a, ll b, ll m = ${1:MOD1}) { return (a % m + b % m + m) % m; }",
+      "ll mod_sub(ll a, ll b, ll m = ${1:MOD1}) { return (a % m - b % m + m) % m; }",
+      "ll mod_mul(ll a, ll b, ll m = ${1:MOD1}) { return (i128)((a % m + m) % m) * ((b % m + m) % m) % m; }",
+      "ll mod_inv(ll a, ll m = ${1:MOD1}) { return binpow(a, m - 2, m); }",
+      "ll mod_div(ll a, ll b, ll m = ${1:MOD1}) { return mod_mul(a, mod_inv(b, m), m); }"
+    ],
+    "description": "Modular math suite (binpow, mod_add, mod_sub, mod_mul, mod_inv, mod_div)"
+  },
+  "Modular Math Lambdas": {
+    "prefix": [
+      "modlambdas",
+      "modlambda",
+      "modl"
+    ],
+    "body": [
+      "auto binpow = [&](ll a, ll b, ll m = ${1:MOD1}) -> ll {",
+      "    ll res = 1; a %= m;",
+      "    while (b > 0) {",
+      "        if (b & 1) res = (i128)res * a % m;",
+      "        a = (i128)a * a % m;",
+      "        b >>= 1;",
+      "    }",
+      "    return res;",
+      "};",
+      "auto mod_inv = [&](ll a, ll m = ${1:MOD1}) -> ll { return binpow(a, m - 2, m); };",
+      "auto mod_add = [&](ll a, ll b, ll m = ${1:MOD1}) -> ll { return (a % m + b % m + m) % m; };",
+      "auto mod_sub = [&](ll a, ll b, ll m = ${1:MOD1}) -> ll { return (a % m - b % m + m) % m; };",
+      "auto mod_mul = [&](ll a, ll b, ll m = ${1:MOD1}) -> ll { return (i128)((a % m + m) % m) * ((b % m + m) % m) % m; };",
+      "auto mod_div = [&](ll a, ll b, ll m = ${1:MOD1}) -> ll { return mod_mul(a, mod_inv(b, m), m); };"
+    ],
+    "description": "Modular math suite as lambdas (binpow, mod_inv, mod_add, mod_sub, mod_mul, mod_div)"
+  },
+  "Modular Inverse Lambda": {
+    "prefix": [
+      "modinv",
+      "minv"
+    ],
+    "body": [
+      "auto mod_inv = [&](ll a, ll m = ${1:MOD1}) -> ll { return binpow(a, m - 2, m); };"
+    ],
+    "description": "Modular inverse lambda using binpow"
   },
   "rep loop": {
     "prefix": "rep",
@@ -2715,54 +2777,12 @@
     ],
     "description": "min priority queue template alias"
   },
-  "cdiv helper": {
-    "prefix": "cdiv",
+  "popcount builtin": {
+    "prefix": "popcnt",
     "body": [
-      "cdiv(${1:a}, ${2:b})"
+      "__builtin_popcountll(${1:x})"
     ],
-    "description": "ceiling division: a / b + ((a ^ b) > 0 && a % b)"
-  },
-  "fdiv helper": {
-    "prefix": "fdiv",
-    "body": [
-      "fdiv(${1:a}, ${2:b})"
-    ],
-    "description": "floor division: a / b - ((a ^ b) < 0 && a % b)"
-  },
-  "mod_add helper": {
-    "prefix": "mod_add",
-    "body": [
-      "mod_add(${1:a}, ${2:b})"
-    ],
-    "description": "(a % m + b % m + m) % m"
-  },
-  "mod_sub helper": {
-    "prefix": "mod_sub",
-    "body": [
-      "mod_sub(${1:a}, ${2:b})"
-    ],
-    "description": "(a % m - b % m + m) % m"
-  },
-  "mod_mul helper": {
-    "prefix": "mod_mul",
-    "body": [
-      "mod_mul(${1:a}, ${2:b})"
-    ],
-    "description": "(i128)a * b % m"
-  },
-  "mod_inv helper": {
-    "prefix": "mod_inv",
-    "body": [
-      "mod_inv(${1:a})"
-    ],
-    "description": "modular inverse using binpow"
-  },
-  "mod_div helper": {
-    "prefix": "mod_div",
-    "body": [
-      "mod_div(${1:a}, ${2:b})"
-    ],
-    "description": "modular division using mod_inv"
+    "description": "__builtin_popcountll(x)"
   },
   "ll type": {
     "prefix": "ll",

@@ -53,39 +53,6 @@ const int INF  = 1e9 + 7;
 const int dx[4] = {1, 0, -1, 0};
 const int dy[4] = {0, 1, 0, -1};
 
-// ==================== Bit Operations (Fast Builtins) ====================
-int topbit(int x)   { return x == 0 ? -1 : 31 - __builtin_clz(x); }
-int topbit(ll x)    { return x == 0 ? -1 : 63 - __builtin_clzll(x); }
-int topbit(ull x)   { return x == 0 ? -1 : 63 - __builtin_clzll(x); }
-int botbit(int x)   { return x == 0 ? 32 : __builtin_ctz(x); }
-int botbit(ll x)    { return x == 0 ? 64 : __builtin_ctzll(x); }
-int botbit(ull x)   { return x == 0 ? 64 : __builtin_ctzll(x); }
-int popcount(int x) { return __builtin_popcount(x); }
-int popcount(ll x)  { return __builtin_popcountll(x); }
-int popcount(ull x) { return __builtin_popcountll(x); }
-int bit_width(ll x) { return x == 0 ? 0 : 64 - __builtin_clzll(x); }
-
-// ==================== Safe Div ====================
-ll cdiv(ll a, ll b) { return a / b + ((a ^ b) > 0 && a % b); }
-ll fdiv(ll a, ll b) { return a / b - ((a ^ b) < 0 && a % b); }
-
-// ==================== Modular Math ====================
-ll binpow(ll a, ll b, ll m = MOD1) {
-    ll res = 1; a %= m;
-    while (b > 0) {
-        if (b & 1) res = (i128)res * a % m;
-        a = (i128)a * a % m;
-        b >>= 1;
-    }
-    return res;
-}
-
-ll mod_add(ll a, ll b, ll m = MOD1) { return (a % m + b % m + m) % m; }
-ll mod_sub(ll a, ll b, ll m = MOD1) { return (a % m - b % m + m) % m; }
-ll mod_mul(ll a, ll b, ll m = MOD1) { return (i128)((a % m + m) % m) * ((b % m + m) % m) % m; }
-ll mod_inv(ll a, ll m = MOD1) { return binpow(a, m - 2, m); }
-ll mod_div(ll a, ll b, ll m = MOD1) { return mod_mul(a, mod_inv(b, m), m); }
-
 // ==================== chmin & chmax ====================
 template <class T, class U = T>
 bool chmin(T &a, U b) { if (b < a) { a = b; return true; } return false; }
