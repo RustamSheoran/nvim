@@ -4,6 +4,7 @@ return {
     opts = function(_, opts)
       opts.sections = opts.sections or {}
       opts.sections.lualine_y = {
+        { "progress", separator = " ", padding = { left = 1, right = 0 } },
         {
           function()
             local line = vim.fn.line(".")
@@ -11,7 +12,7 @@ return {
             local total = vim.fn.line("$")
             return string.format("Ln %d, Col %d / %d lines", line, col, total)
           end,
-          padding = { left = 1, right = 1 },
+          padding = { left = 0, right = 1 },
         },
       }
     end,

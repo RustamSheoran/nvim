@@ -12,7 +12,7 @@ This setup replaces the need for VS Code and heavy Node.js background processes 
 - **🚀 Native CPH Server in Lua:** Built-in HTTP listener on port `27121` that communicates directly with browser extensions. Zero external dependencies.
 - **🛡️ 3-Step Pre-Submission Protection:** Running `<leader>rs` automatically comments out all active `dbg(...)` statements (without deleting them), verifies syntax (`-fsyntax-only`), AND compiles with AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases before submitting to prevent accidental penalties.
 - **🔍 Dedicated Local Debug Runner (`<leader>rd`):** Compiles with `-DLOCAL -DDEBUG` to run all saved testcases, printing variables via `dbg(...)`, wrapping outputs in `------`, and measuring execution time in milliseconds.
-- **💥 Automated Stress Testing (`<leader>rb`):** Auto-generates `brute.cpp` (pre-filled with your template) and `gen.cpp` (with random arrays, permutations, strings, and trees). Halts on the first output mismatch and displays the counterexample.
+- **💥 Automated Stress Testing (`<leader>rb`):** Auto-generates per-problem brute force (`<stem>_brute.cpp`, pre-filled with your template) and generator (`<stem>_gen.cpp`, with random arrays, permutations, strings, and trees). Halts on the first output mismatch and displays the counterexample.
 - **🎨 Google C++ Style Guide:** Globally formatted with `clang-format` (`BasedOnStyle: Google`) on save and via `<leader>cf`.
 - **📦 On-Demand Algorithm Snippets:** Ultra-clean, minimal default template (~120 lines) paired with instant snippet triggers / fuzzy picker (`rt`) for algorithms and math helpers (`binpow` lambda, `bitops`, `safediv`, `modmath`, `dsu`, `segtree`, `oset`).
 - **💡 Distraction-Free Editing:** Treesitter-powered completion filtering (no comment words in suggestions), 2-second idle auto-save, relative line numbering (`0` at cursor line), and custom statusline metrics.
@@ -233,12 +233,14 @@ When you want to inspect variables, verify execution time, or test custom inputs
 ### 6. Automated Stress Testing (`<leader>rb`)
 When you are stuck on *"Wrong Answer on test 4"* and sample cases pass:
 - Press `<leader>rb` (Run Brute-force / Stress test).
-- **Auto-Generated Templates:**
-  - `brute.cpp`: Created with your full CP template (`ll`, `vi`, `rep`, safe math, stream I/O) ready for your slow $\mathcal{O}(N^2)$ brute-force logic.
-  - `gen.cpp`: Pre-loaded with generator helpers (`rand_int`, `rand_array`, `rand_permutation`, `rand_string`, `rand_tree`).
+- **Per-Problem Isolated Files:**
+  - Every problem has its own isolated brute force and generator (e.g. `A_brute.cpp` & `A_gen.cpp` for `A.cpp`, `B_brute.cpp` & `B_gen.cpp` for `B.cpp`), so you never overwrite files across an entire contest!
+  - `<stem>_brute.cpp`: Created with your clean CP template ready for your slow $\mathcal{O}(N^2)$ brute-force logic.
+  - `<stem>_gen.cpp`: Pre-loaded with generator helpers (`rand_int`, `rand_array`, `rand_permutation`, `rand_string`, `rand_tree`).
 - **Split Navigation:**
-  - Press `<leader>rB` to open `brute.cpp` in a vertical split beside your solution.
-  - Press `<leader>rG` to open `gen.cpp` in a vertical split beside your solution.
+  - Press `<leader>rB` to open the problem's brute force (`<stem>_brute.cpp`) in a vertical split beside your solution.
+  - Press `<leader>rG` to open the problem's generator (`<stem>_gen.cpp`) in a vertical split beside your solution.
+  - Seamless navigation: you can press `<leader>rb` from your solution, brute force, or generator, and it will automatically stress-test the correct problem.
   - Close split windows with `:q`, `:Q`, or `Ctrl+w, c`.
 - **Automated Loop:** Neovim compiles all three programs and loops random testcases until the first output mismatch is detected.
 - **Counterexample Display:** Immediately halts and prints:
@@ -299,7 +301,7 @@ Key features and controls:
 - **2-Second Idle Auto-Save:** Pausing typing for 2 seconds automatically saves the buffer in the background without interrupting your typing or shifting cursor position.
 - **Typo Protection:** Aliased common Shift-typo commands (`:Q` $\rightarrow$ `:q`, `:Qa` $\rightarrow$ `:qa`, `:W` $\rightarrow$ `:w`, `:Wq` $\rightarrow$ `:wq`, `:Wa` $\rightarrow$ `:wa`).
 - **Relative Line Numbers:** Active cursor line displays `0`, while lines above and below count upward `1, 2, 3...` for fast vertical jumping (`15j`, `8k`).
-- **Statusline (Bottom-Right):** Displays cursor position and total file size: `Ln %d, Col %d / %d lines`.
+- **Statusline (Bottom-Right):** Displays buffer progress percentage (`Top` / `45%` / `Bot`) alongside cursor position and total file size: `45% Ln %d, Col %d / %d lines`.
 
 ---
 
@@ -310,8 +312,8 @@ Key features and controls:
 | `<leader>rr` | **Run Testcases** | Compiles in ~0.9s and runs sample cases (press `q` to close) |
 | `<leader>rd` / `<leader>rx` | **Run Local Debug** | Runs testcases with `dbg(...)`, `------`, and Chrono timing |
 | `<leader>rb` | **Stress Test** | Automated loop (solution vs brute) until mismatch found |
-| `<leader>rB` | **Open Brute** | Opens `brute.cpp` in a vertical split |
-| `<leader>rG` | **Open Gen** | Opens `gen.cpp` in a vertical split |
+| `<leader>rB` | **Open Brute** | Opens problem brute force (`<stem>_brute.cpp`) in a vertical split |
+| `<leader>rG` | **Open Gen** | Opens problem generator (`<stem>_gen.cpp`) in a vertical split |
 | `<leader>rz` | **Run Sanitizer** | Catches segfaults & out-of-bounds with exact line numbers |
 | `<leader>ru` | **Open Problem URL** | Opens Codeforces problem statement in browser |
 | `<leader>ra` | **Add Testcase** | Add a custom test case |

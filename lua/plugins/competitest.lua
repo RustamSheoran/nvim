@@ -71,14 +71,14 @@ return {
       function()
         require("config.stress").open_brute()
       end,
-      desc = "Open brute.cpp in vertical split",
+      desc = "Open problem brute force (<stem>_brute.cpp)",
     },
     {
       "<leader>rG",
       function()
         require("config.stress").open_gen()
       end,
-      desc = "Open gen.cpp in vertical split",
+      desc = "Open problem generator (<stem>_gen.cpp)",
     },
     {
       "<leader>ru",
