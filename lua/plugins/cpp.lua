@@ -87,6 +87,37 @@ return {
       },
       formatters = {
         ["clang-format"] = {
+          condition = function(self, ctx)
+            -- 1. Never format leetcode_template.cpp directly
+            local filename = vim.fn.fnamemodify(ctx.filename, ":t")
+            if filename == "leetcode_template.cpp" then
+              return false
+            end
+
+            -- 2. If the buffer is just the lcc template (no user code written yet), don't format it
+            local lines = vim.api.nvim_buf_get_lines(ctx.buf, 0, -1, false)
+            local has_lcc = false
+            local has_code_after_lcc = false
+            local found_fast_io = false
+            for _, l in ipairs(lines) do
+              if found_fast_io then
+                local trimmed = vim.trim(l)
+                if trimmed ~= "" and not trimmed:match("^//%s*clang%-format%s+on") then
+                  has_code_after_lcc = true
+                  break
+                end
+              elseif l:find("static const auto fast_io", 1, true) then
+                has_lcc = true
+                found_fast_io = true
+              end
+            end
+
+            if has_lcc and not has_code_after_lcc then
+              return false
+            end
+
+            return true
+          end,
           prepend_args = {
             "--style={BasedOnStyle: Google, AllowShortFunctionsOnASingleLine: InlineOnly, KeepEmptyLines: {AtStartOfBlock: true}}",
           },
