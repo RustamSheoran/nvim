@@ -15,7 +15,7 @@ This setup replaces the need for VS Code and heavy Node.js background processes 
 - **💥 Automated Stress Testing (`<leader>rb`):** Auto-generates per-problem brute force (`<stem>_brute.cpp`, pre-filled with your template) and generator (`<stem>_gen.cpp`, with random arrays, permutations, strings, and trees). Halts on the first output mismatch and displays the counterexample.
 - **🎨 Google C++ Style Guide:** Globally formatted with `clang-format` (`BasedOnStyle: Google`) on save and via `<leader>cf`.
 - **📦 On-Demand Algorithm Snippets:** Ultra-clean, minimal default template (~120 lines) paired with instant snippet triggers / fuzzy picker (`rt`) for algorithms and math helpers (`binpow` lambda, `bitops`, `safediv`, `modmath`, `dsu`, `segtree`, `oset`).
-- **💡 Distraction-Free Editing:** Treesitter-powered completion filtering (no comment words in suggestions), 2-second idle auto-save, relative line numbering (`0` at cursor line), and custom statusline metrics.
+- **💡 Distraction-Free Editing:** Treesitter-powered completion filtering (no comment words in suggestions), 2-second idle auto-save, hybrid line numbering (actual line number at cursor line), and custom statusline metrics.
 
 ---
 
@@ -300,7 +300,7 @@ Key features and controls:
 ### 10. Editor Ergonomics & Visual Customizations
 - **2-Second Idle Auto-Save:** Pausing typing for 2 seconds automatically saves the buffer in the background without interrupting your typing or shifting cursor position.
 - **Typo Protection:** Aliased common Shift-typo commands (`:Q` $\rightarrow$ `:q`, `:Qa` $\rightarrow$ `:qa`, `:W` $\rightarrow$ `:w`, `:Wq` $\rightarrow$ `:wq`, `:Wa` $\rightarrow$ `:wa`).
-- **Relative Line Numbers:** Active cursor line displays `0`, while lines above and below count upward `1, 2, 3...` for fast vertical jumping (`15j`, `8k`).
+- **Hybrid Line Numbers:** Active cursor line displays its actual line number, while lines above and below count upward `1, 2, 3...` for fast vertical jumping (`15j`, `8k`).
 - **Statusline (Bottom-Right):** Displays buffer progress percentage (`Top` / `45%` / `Bot`) alongside cursor position and total file size: `45% Ln %d, Col %d / %d lines`.
 
 ---

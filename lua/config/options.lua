@@ -7,8 +7,8 @@ require('config.remote_clipboard').setup()
 vim.opt.autowrite = true
 vim.opt.autowriteall = true
 
--- Relative line numbers (current line is 0, above/below are 1, 2, 3...)
-vim.opt.number = false
+-- Hybrid line numbers (current line shows absolute line number, above/below are relative 1, 2, 3...)
+vim.opt.number = true
 vim.opt.relativenumber = true
 
 -- Command aliases for common Shift typos (:Q -> :q, :W -> :w, etc.)
