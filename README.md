@@ -2,13 +2,22 @@
 
 A high-performance, keyboard-driven Competitive Programming environment built on top of [LazyVim](https://github.com/LazyVim/LazyVim), GCC 16, C++17 / C++23, mold linker, and a native Lua HTTP server.
 
-This setup replaces the need for VS Code and heavy background processes with a completely native, terminal-based workflow that compiles in **~0.27s**, automatically fetches testcases from your browser, stress-tests solutions against brute forces, runs Google AddressSanitizer pre-submission diagnostics, monitors live verdicts, predicts rating changes, and submits directly to Codeforces with a single keystroke.
+This setup replaces the need for VS Code and heavy background processes with a completely native, terminal-based workflow that compiles in **~0.27s** (measured on ancient hardware: 2013 4th-gen Intel Core i5-4430; drops to **~70 to 80 ms** on modern CPUs), automatically fetches testcases from your browser, stress-tests solutions against brute forces, runs Google AddressSanitizer pre-submission diagnostics, monitors live verdicts, predicts rating changes, and submits directly to Codeforces with a single keystroke.
+
+<p align="center">
+  <a href="#quick-setup"><b>⚡ Quick Setup</b></a> •
+  <a href="#arch-setup"><b>🐧 Arch Linux</b></a> •
+  <a href="#macos-setup"><b>🍎 macOS</b></a> •
+  <a href="#workflow-guide"><b>🚀 Workflow Guide</b></a> •
+  <a href="#keymaps"><b>⌨️ Keymap Reference</b></a> •
+  <a href="#cp-template"><b>📄 CP Template</b></a>
+</p>
 
 ---
 
 ## Key Highlights
 
-- **⚡ Blazing Fast Compilation (~0.27s):** Uses GCC 16 Precompiled Headers (`bits/stdc++.h.gch`) and the ultra-fast `mold` linker with `-O2` to drop compile times from ~2.7s down to ~0.27s.
+- **⚡ Blazing Fast Compilation (~0.27s on i5-4430 / ~70-80 ms on Modern CPUs):** Uses GCC 16 Precompiled Headers (`bits/stdc++.h.gch`) and the ultra-fast `mold` linker with `-O2` to drop compile times from ~2.7s down to ~0.27s on ancient hardware (Intel Core i5-4430) and down to **~70 to 80 ms** on modern processors.
 - **🚀 Native CPH Server in Lua:** Built-in HTTP listener on port `27121` that communicates directly with browser extensions. Zero external dependencies.
 - **🛡️ 3-Step Pre-Submission Protection (`<leader>rs`):** Running `<leader>rs` automatically comments out all active `dbg(...)` statements (without deleting them), verifies syntax (`-fsyntax-only`), and compiles with Google AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases. If a memory bug or undefined behavior is detected, submission is halted immediately and your cursor jumps straight to the offending red line!
 - **📊 Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`):** Native Lua integration displaying live contest standings, solve counts, Carrot rating change predictions (**+24** in green, **-26** in red), next rankup targets (**+239 needed to CM**), celebratory promotion banners (**✨ GUARANTEED CANDIDATE MASTER AFTER THIS CONTEST! CONGRATS! ✨**), Repovive problem difficulty estimations (**~1100\***), and What-If solve projections right inside Neovim.
@@ -27,6 +36,7 @@ This setup replaces the need for VS Code and heavy background processes with a c
 
 ## Prerequisites & Installation
 
+<a id="quick-setup"></a>
 ### ⚡ One-Click Automated Setup (`setup.sh`)
 
 If you want an automated, zero-effort installation, clone the repository and run `setup.sh`:
@@ -45,7 +55,7 @@ bash setup.sh
 - **System Detection:** Detects Arch Linux (`pacman`, `/proc`) or macOS (`brew`).
 - **Non-Interactive Package Installation:** Automatically installs compilers and tools (`pacman -S --noconfirm --needed neovim gcc clang mold nodejs` on Arch Linux, or `brew install neovim gcc llvm mold node` on macOS). Only prompts once for `sudo` password if needed.
 - **Stack Limit Expansion:** Permanently writes 256 MB stack limits (`ulimit -s 262144` on Arch Linux, `ulimit -s 65520` on macOS) into `~/.bashrc` and `~/.zshrc`.
-- **GCC Precompiled Headers:** Automatically locates `bits/stdc++.h` and compiles `bits/stdc++.h.gch` for instant ~0.27s compilation.
+- **GCC Precompiled Headers:** Automatically locates `bits/stdc++.h` and compiles `bits/stdc++.h.gch` for instant compilation (~0.27s on ancient i5-4430 / ~70-80 ms on modern hardware).
 
 ---
 
@@ -60,6 +70,7 @@ bash setup.sh
 
 ---
 
+<a id="arch-setup"></a>
 ### Setup Guide for Arch Linux
 
 Arch Linux provides the latest GCC, Clang, Google sanitizers, and `mold` directly in the official repositories.
@@ -81,6 +92,7 @@ ulimit -s 262144
 
 ---
 
+<a id="macos-setup"></a>
 ### Setup Guide for macOS
 
 On macOS, install Neovim, toolchains, and `mold` using Homebrew.
@@ -216,7 +228,7 @@ Traditional linkers (`ld` or `gold`) take between 200ms to 500ms just to link st
 The `mold` linker is a modern, highly-parallel linker designed specifically for instantaneous developer turnaround.
 - Injected via `-fuse-ld=mold`.
 - Links competitive programming binaries in **under 10 milliseconds**.
-- Combined with GCC PCH, overall compile and link cycle finishes in **~0.27s**.
+- Combined with GCC PCH, overall compile and link cycle finishes in **~0.27s** on ancient i5-4430 hardware and drops down to **~70 to 80 ms** on modern processors.
 
 ### Google AddressSanitizer & UndefinedBehaviorSanitizer
 Memory safety bugs (such as 1-based indexing into a 0-indexed vector, buffer overflows, or signed integer overflow) often go unnoticed locally on sample tests because uninitialized memory might happen to be zero, only to produce **Runtime Error** or **Wrong Answer** on Codeforces test 14.
@@ -232,6 +244,7 @@ To eliminate typing lag and noisy diagnostics:
 
 ---
 
+<a id="workflow-guide"></a>
 ## The Workflow Guide
 
 *(Note: The `<leader>` key is mapped to **Spacebar**)*
@@ -525,17 +538,21 @@ Pressing `<leader>rl` opens a floating real-time dashboard:
 ┌────────────────────────────────────────────────────────────────────────┐
 │ Codeforces Round 1010 (Div. 2) [CODING]                                │
 │ 📊 Standing: Rank #1591 (#1290) | Points: 2244 | Solved: 3/7           │
-│ 📈 Rating Delta: +24 (+239 needed to CM)                               │
+│ 📈 Projected Delta: 1861 -> 1885  +24 (+239 needed to CM)              │
 │ ✨ GUARANTEED CANDIDATE MASTER AFTER THIS CONTEST! CONGRATS! ✨        │
-│                                                                        │
-│ [A] 14,204 solves [~1100*] [SOLVED]                                    │
-│ [B] 11,850 solves [~1300*] [SOLVED]                                    │
-│ [C] 4,120 solves  [~1550*] [SOLVED]                                    │
-│ [D] 890 solves    [~1850*]                                             │
-│   • Solve [D] (+1000 pts) -> New Rank: #331 +89                        │
-│ [E] 124 solves    [~2300*]                                             │
-│   • Solve [E] (+1500 pts) -> New Rank: #142 +148                       │
-│                                                                        │
+├────────────────────────────────────────────────────────────────────────┤
+│  Idx   Problem Name                 Solved  Diff     Pts     Status    │
+├────────────────────────────────────────────────────────────────────────┤
+│  [A]   Circuit Repair               14204   ~1100*   500     ✔ Solved  │
+│  [B]   Permutation Graph            11850   ~1300*   1000    ✔ Solved  │
+│  [C]   Tree Counting                4120    ~1550*   1500    ✔ Solved  │
+│  [D]   Matrix Queries               890     ~1850*   2000    -         │
+│  [E]   Subsequence Optimization     124     ~2300*   2500    -         │
+├────────────────────────────────────────────────────────────────────────┤
+│ 🎯 What-If Solve Projections:                                          │
+│   • Solve [D] [1850] (+1000 pts) -> New Rank: #331   +89               │
+│   • Solve [E] [2300] (+1500 pts) -> New Rank: #142   +148              │
+├────────────────────────────────────────────────────────────────────────┤
 │ [<CR>/o] Open Problem  [r] Refresh  [s] Change Handle  [q/Esc] Close   │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -560,9 +577,11 @@ Meta Hacker Cup requires uploading generated `output.txt` files against large of
 
 ### 14. GitHub Copilot & Contest Mode (`<leader>t`)
 GitHub Copilot is integrated with native inline ghost text across all programming languages (C++, Python, TypeScript, Java, HTML). It is decoupled from the popup menu, leaving snippets and standard 2-space `<Tab>` untouched.
+- **Default State:** Copilot starts **disabled by default** on Neovim startup to comply with Codeforces anti-cheat rules. Press **`<leader>tc`** to toggle Copilot on or off anytime.
 
-Key features and controls:
-- **Default State:** Copilot starts **disabled by default** on Neovim startup to comply with Codeforces anti-cheat rules.
+<details>
+<summary><b>View GitHub Copilot Keybindings & Controls (Click to Expand)</b></summary>
+
 - `<leader>tc` -> Master Contest Mode switch (turns Copilot completely off during rated contests to comply with anti-cheat rules, press again to re-enable)
 - `<leader>ta` -> Toggle Auto-Trigger (switches between continuous inline ghost text and on-demand mode)
 - `<leader>tr` -> Request suggestion manually (blocked automatically with a warning if Contest Mode is active)
@@ -576,6 +595,8 @@ Key features and controls:
 - `Alt + ]` / `Alt + [` -> Cycle next or previous suggestion
 - `Ctrl + ]` -> Dismiss suggestion
 
+</details>
+
 ### 15. Editor Ergonomics & Visual Customizations
 - **2-Second Idle Auto-Save:** Pausing typing for 2 seconds automatically saves the buffer in the background without interrupting your typing or shifting cursor position.
 - **Typo Protection:** Aliased common Shift-typo commands (`:Q` -> `:q`, `:Qa` -> `:qa`, `:W` -> `:w`, `:Wq` -> `:wq`, `:Wa` -> `:wa`).
@@ -584,6 +605,7 @@ Key features and controls:
 
 ---
 
+<a id="keymaps"></a>
 ## Keymap Reference
 
 <details>
@@ -630,9 +652,10 @@ Key features and controls:
 
 ---
 
+<a id="cp-template"></a>
 ## Default Template (`cp_template.cpp`)
 
-Here is the clean default template automatically injected into every new problem (compiles in **~0.27s**):
+Here is the clean default template automatically injected into every new problem (compiles in **~0.27s** on ancient i5-4430 / **~70 to 80 ms** on modern CPUs):
 
 <details>
 <summary><b>View Default Template (cp_template.cpp)</b></summary>
