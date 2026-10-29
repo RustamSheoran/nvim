@@ -83,8 +83,8 @@ ulimit -s 262144
 On macOS, install Neovim, toolchains, and `mold` using Homebrew.
 
 ```bash
-# 1. Install Neovim, GCC / LLVM Clang, and mold via Homebrew
-brew install neovim gcc llvm mold
+# 1. Install Neovim, GCC / LLVM Clang, mold, and clang-format via Homebrew
+brew install neovim gcc llvm mold node clang-format
 
 # 2. Increase shell stack limit in ~/.zshrc
 echo "ulimit -s 65520" >> ~/.zshrc
@@ -149,7 +149,7 @@ sudo g++ -O2 -std=c++23 -x c++-header /usr/include/c++/16/x86_64-pc-linux-gnu/bi
 > [!IMPORTANT]
 > **Arch Linux GCC Updates (`pacman -Syu`):**
 > On Arch Linux, when `pacman -Syu` eventually upgrades GCC to a newer version in the future, the `/usr/include/c++/16/` path will shift to the new version number.
-> If compilation ever jumps back to ~2.7s after a big system upgrade, simply re-run the two `sudo g++ ...` commands above for the new GCC version path to restore instant ~0.32s compilation.
+> If compilation ever jumps back to ~2.7s after a big system upgrade, simply re-run the two `sudo g++ ...` commands above (or re-run `bash setup.sh`, which automatically detects your new GCC path) to restore instant ~0.32s compilation.
 
 ### 256 MB Stack Size Protection (`ulimit -s 262144`)
 By default, Linux limits process call stacks to 8 MB (`ulimit -s 8192`), causing artificial `Segmentation fault` crashes on deep recursion (e.g. $N = 2 \times 10^5$ Tree DFS), even when code is 100% correct.
@@ -194,6 +194,20 @@ To eliminate typing lag and noisy diagnostics:
    - Saves sample inputs and outputs in `<Problem>.testcases` and the problem URL in `<Problem>.url`.
    - Injects the default CP template (`cp_template.cpp`).
    - **Auto-Jump Magic:** Neovim automatically locates `void solve() {`, places your cursor inside with 4-space indentation, and switches into **Insert Mode** so you can start coding your logic immediately.
+
+#### Problem Directory Anatomy
+When a problem is fetched, Neovim creates an organized problem workspace:
+
+```text
+~/cp/Codeforces/Round_1010/
+├── A.cpp              # Your solution code
+├── A.testcases        # Saved sample and custom testcases (inputs and outputs)
+├── A.url              # Problem URL for browser jump (<CR> / <leader>ru) and submit (<leader>rs)
+├── A_brute.cpp        # Auto-generated brute force solution (<leader>rb / <leader>rB)
+└── A_gen.cpp          # Auto-generated random testcase generator (<leader>rb / <leader>rG)
+```
+
+- **Persistent Testcases:** Custom testcases added with `<leader>ra`, edited with `<leader>re`, or deleted with `<leader>rD` are saved directly into `<Problem>.testcases`. They persist permanently across Neovim sessions.
 
 ### 2. On-Demand Algorithm Snippets & Interactive Picker
 Instead of bloating your base template with thousands of lines of unused algorithms, insert algorithms on demand:
@@ -357,6 +371,15 @@ When submitting with `<leader>rs`, Neovim sends the language ID to `cph-submit`.
 | **GNU G++20 13.2 (64 bit, winlibs)** | **`"89"`** | Full 64-bit speed with C++20 on Codeforces. |
 | **GNU G++17 7.3.0** | **`"54"`** | 32-bit compiler. Note: `__int128_t` is not supported on 32-bit GCC. |
 
+#### Multi-Judge Support & Automated Browser Submission
+While Codeforces submissions are handled natively via the `cph-submit` extension, `<leader>rs` also fully supports:
+- **AtCoder, CSES, CodeChef, LeetCode, Kattis, SPOJ, and AlgoZenith**
+
+**How it works for non-Codeforces platforms:**
+1. Runs the same 3-step verification (comments debug statements, verifies syntax, and runs Google ASan/UBSan check against sample testcases).
+2. Automatically copies the sanitized, clean code to your system clipboard (`+` and `"` registers).
+3. Automatically opens the problem submission page in your default browser, ready for immediate paste and submit!
+
 ### 9. Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`)
 Press `<leader>rl` while working on any contest problem to open the live Codeforces Contest HUD.
 
@@ -385,6 +408,28 @@ Press `<leader>rl` while working on any contest problem to open the live Codefor
   - `r`: Refresh contest standings and rating predictions immediately.
   - `s`: Switch or update your Codeforces handle.
   - `q` or `<Esc>`: Close the HUD.
+
+#### Live Standings & Elo HUD Preview
+Pressing `<leader>rl` opens a floating real-time dashboard:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│ Codeforces Round 1010 (Div. 2) [CODING]                                │
+│ 📊 Standing: Rank #1591 (#1290) | Points: 2244 | Solved: 3/7           │
+│ 📈 Rating Delta: +24 (+239 needed to CM)                               │
+│ ✨ GUARANTEED CANDIDATE MASTER AFTER THIS CONTEST! CONGRATS! ✨        │
+│                                                                        │
+│ [A] 14,204 solves [~1100*] [SOLVED]                                    │
+│ [B] 11,850 solves [~1300*] [SOLVED]                                    │
+│ [C] 4,120 solves  [~1550*] [SOLVED]                                    │
+│ [D] 890 solves    [~1850*]                                             │
+│   • Solve [D] (+1000 pts) -> New Rank: #331 +89                        │
+│ [E] 124 solves    [~2300*]                                             │
+│   • Solve [E] (+1500 pts) -> New Rank: #142 +148                       │
+│                                                                        │
+│ [<CR>/o] Open Problem  [r] Refresh  [s] Change Handle  [q/Esc] Close   │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
 ### 10. Live Submission Verdict Watcher (`<leader>rw`)
 After submitting your solution, press `<leader>rw` to stream the real-time evaluation verdict directly inside Neovim without opening your browser.
@@ -596,7 +641,7 @@ int main() {
 
 ## Full Library Template (`cpp_template.cpp`)
 
-Your complete algorithm library template remains available anytime via the `cpp` snippet:
+Your complete algorithm library template is stored in [`templates/cpp_template.cpp`](templates/cpp_template.cpp) and remains accessible anytime via the `cpp` snippet:
 
 <details>
 <summary>View cpp_template.cpp (Full Library)</summary>

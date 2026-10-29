@@ -87,7 +87,7 @@ return {
       },
       formatters = {
         ["clang-format"] = {
-          command = "/usr/bin/clang-format",
+          command = vim.fn.executable("clang-format") == 1 and "clang-format" or "/usr/bin/clang-format",
           condition = function(self, ctx)
             -- 1. Never format leetcode_template.cpp directly
             local filename = vim.fn.fnamemodify(ctx.filename, ":t")

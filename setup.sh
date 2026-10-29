@@ -96,8 +96,8 @@ elif [ "$OS" = "Darwin" ]; then
         fi
     fi
 
-    echo "[*] Installing required packages via Homebrew (neovim, gcc, llvm, mold, node)..."
-    brew install neovim gcc llvm mold node
+    echo "[*] Installing required packages via Homebrew (neovim, gcc, llvm, mold, node, clang-format)..."
+    brew install neovim gcc llvm mold node clang-format
 
     # 3. Stack limit increase for macOS (Darwin max shell limit: 65520 KB)
     echo "[*] Configuring stack limit for macOS..."
