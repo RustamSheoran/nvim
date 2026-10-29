@@ -2,6 +2,120 @@ local M = {}
 local uv = vim.uv or vim.loop
 local server = nil
 local current_payload = nil
+local current_payload_platform = nil
+
+function M.detect_judge_and_contest(task)
+  local url = task.url or ""
+  local group = task.group or "Misc"
+  local judge = "Codeforces"
+
+  if task.judge and task.judge ~= "" then
+    judge = task.judge
+  elseif url:find("atcoder%.jp") then
+    judge = "AtCoder"
+  elseif url:find("codechef%.com") then
+    judge = "CodeChef"
+  elseif url:find("cses%.fi") then
+    judge = "CSES"
+  elseif url:find("leetcode%.com") then
+    judge = "LeetCode"
+  elseif url:find("spoj%.com") then
+    judge = "SPOJ"
+  elseif url:find("kattis%.com") then
+    judge = "Kattis"
+  elseif url:find("hackerrank%.com") then
+    judge = "HackerRank"
+  elseif url:find("maang%.in") or url:find("algozenith") then
+    judge = "AlgoZenith"
+  elseif url:find("codeforces%.com") then
+    judge = "Codeforces"
+  else
+    local prefix = group:match("^([%w_]+)%s*%-")
+    if prefix and prefix ~= "" then
+      judge = prefix
+    end
+  end
+
+  local contest = group
+  if contest:find("^" .. judge .. "%s*%-") then
+    contest = contest:gsub("^" .. judge .. "%s*%-%s*", "")
+  end
+  contest = contest:gsub("[^%w_-]", "_"):gsub("_+", "_"):gsub("^_", ""):gsub("_$", "")
+  if contest == "" then
+    contest = "Misc"
+  end
+
+  return judge, contest
+end
+
+function M.get_platform_language_id(platform, lang)
+  lang = lang or "cpp"
+  local mapping = {
+    Codeforces = {
+      cpp = "91", -- GNU G++23 14.2 (64 bit, msys2)
+      c = "43", -- GNU GCC C11 5.1.0
+      python = "70", -- Python 3.8.10
+      pypy = "71", -- PyPy 3.7
+      rust = "75", -- Rust 1.75.0
+      java = "87", -- Java 21
+    },
+    AtCoder = {
+      cpp = "5001", -- C++ 23 (gcc 12.2) [4003 for legacy contests]
+      c = "5004", -- C (gcc 12.2)
+      python = "5017", -- Python (PyPy 3.10)
+      rust = "5018", -- Rust (rustc 1.70.0)
+      java = "5021", -- Java (OpenJDK 17)
+    },
+    CodeChef = {
+      cpp = "CPP17",
+      c = "C",
+      python = "PYTH 3",
+      pypy = "PYPY3",
+      rust = "RUST",
+      java = "JAVA",
+    },
+    CSES = {
+      cpp = "C++",
+      c = "C",
+      python = "Python3",
+      rust = "Rust",
+      java = "Java",
+    },
+    LeetCode = {
+      cpp = "cpp",
+      c = "c",
+      python = "python3",
+      rust = "rust",
+      java = "java",
+    },
+    SPOJ = {
+      cpp = "44", -- C++14 (gcc 8.3)
+      c = "11", -- C (gcc 8.3)
+      python = "116", -- Python 3
+      rust = "93", -- Rust
+      java = "10", -- Java
+    },
+    Kattis = {
+      cpp = "C++",
+      c = "C",
+      python = "Python 3",
+      rust = "Rust",
+      java = "Java",
+    },
+    AlgoZenith = {
+      cpp = "54", -- C++14
+      c = "48",
+      python = "71",
+      java = "62",
+    },
+  }
+
+  local p = mapping[platform]
+  if p then
+    return p[lang] or p.cpp
+  end
+  return "91"
+end
 
 function M.start()
   if server then return end
@@ -56,6 +170,13 @@ function M.start()
           
         elseif method == "GET" and (path == "/getSubmit" or path:match("^/getSubmit%?")) then
           local resp_body = current_payload or '{"empty": true}'
+          -- Filter: if cph-submit extension is requesting but current_payload is NOT for Codeforces/CSES/AlgoZenith:
+          local is_cph_ext = request_data:lower():find("cph%-submit:%s*true") ~= nil
+          local is_cph_supported = (current_payload_platform == "Codeforces" or current_payload_platform == "CSES" or current_payload_platform == "AlgoZenith")
+          if is_cph_ext and current_payload_platform and not is_cph_supported then
+            resp_body = '{"empty": true}'
+          end
+
           local response = "HTTP/1.1 200 OK\r\n" ..
                            "Content-Type: application/json\r\n" ..
                            "Access-Control-Allow-Origin: *\r\n" ..
@@ -65,8 +186,9 @@ function M.start()
           client:write(response, function()
             if not client:is_closing() then client:close() end
           end)
-          if current_payload then
+          if current_payload and resp_body ~= '{"empty": true}' then
             current_payload = nil
+            current_payload_platform = nil
           end
           
         elseif method == "POST" then
@@ -84,8 +206,7 @@ function M.start()
               end
               
               if not ok or not target_path then
-                local judge = task.judge or "Codeforces"
-                local contest = (task.group or "Misc"):gsub("[^%w_-]", "_")
+                local judge, contest = M.detect_judge_and_contest(task)
                 local name = (task.name or "problem"):gsub("%s+", "_"):gsub("[^%w_-]", "")
                 target_path = string.format("%s/cp/%s/%s/%s.cpp", vim.fn.expand("~"), judge, contest, name)
               end
@@ -269,7 +390,115 @@ function M.uncomment_dbg(filepath)
   return count
 end
 
+local asan_ns = vim.api.nvim_create_namespace("cph_asan_error")
+
+function M.clear_asan_errors(bufnr)
+  if bufnr and bufnr ~= -1 and vim.api.nvim_buf_is_valid(bufnr) then
+    pcall(vim.api.nvim_buf_clear_namespace, bufnr, asan_ns, 0, -1)
+    pcall(vim.diagnostic.reset, asan_ns, bufnr)
+  end
+end
+
+function M.highlight_asan_errors(filepath, err_output, testcase_idx)
+  local bufnr = vim.fn.bufnr(filepath)
+  if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  M.clear_asan_errors(bufnr)
+
+  local filename = vim.fn.fnamemodify(filepath, ":t")
+  local errors = {}
+  local seen_lines = {}
+
+  -- 1. Check UBSan runtime errors: "path/file.cpp:5:9: runtime error: ..."
+  for file, line, col, msg in err_output:gmatch("([^\r\n:]+):(%d+):(%d+):%s*runtime error:%s*([^\r\n]+)") do
+    if file:find(filename, 1, true) then
+      local lnum = tonumber(line)
+      if lnum and not seen_lines[lnum] then
+        seen_lines[lnum] = true
+        table.insert(errors, { line = lnum, col = tonumber(col) or 1, message = "UBSan: " .. msg })
+      end
+    end
+  end
+
+  -- 2. Check ASan summary: "SUMMARY: AddressSanitizer: heap-buffer-overflow /path/file.cpp:6 in solve()"
+  for err_type, file, line in err_output:gmatch("SUMMARY:%s*AddressSanitizer:%s*([%w%-_]+)%s+([^\r\n:]+):(%d+)") do
+    if file:find(filename, 1, true) then
+      local lnum = tonumber(line)
+      if lnum and not seen_lines[lnum] then
+        seen_lines[lnum] = true
+        table.insert(errors, { line = lnum, col = 1, message = "ASan: " .. err_type })
+      end
+    end
+  end
+
+  -- 3. Check stack frames: "#0 0x... in solve() /path/file.cpp:6"
+  local top_reason = err_output:match("ERROR:%s*AddressSanitizer:%s*([%w%-_]+)") or "Sanitizer Error"
+  for func, file, line in err_output:gmatch("in%s+([%w_]+)%s*%b()%s+([^\r\n:]+):(%d+)") do
+    if file:find(filename, 1, true) then
+      local lnum = tonumber(line)
+      if lnum and not seen_lines[lnum] then
+        seen_lines[lnum] = true
+        table.insert(errors, { line = lnum, col = 1, message = string.format("ASan: %s (in %s)", top_reason, func) })
+      end
+    end
+  end
+
+  if #errors == 0 then
+    -- Fallback: check any pattern "filename:line" in err_output
+    for line in err_output:gmatch(vim.pesc(filename) .. ":(%d+)") do
+      local lnum = tonumber(line)
+      if lnum and not seen_lines[lnum] then
+        seen_lines[lnum] = true
+        table.insert(errors, { line = lnum, col = 1, message = "Sanitizer: " .. top_reason })
+      end
+    end
+  end
+
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  local diags = {}
+
+  for _, err in ipairs(errors) do
+    if err.line >= 1 and err.line <= line_count then
+      -- Red line background highlight + Red virtual comment at end of line
+      pcall(vim.api.nvim_buf_set_extmark, bufnr, asan_ns, err.line - 1, 0, {
+        line_hl_group = "DiffDelete",
+        virt_text = { { "  // 🚨 " .. err.message, "DiagnosticError" } },
+        virt_text_pos = "eol",
+        priority = 5000,
+      })
+
+      table.insert(diags, {
+        lnum = err.line - 1,
+        col = (err.col or 1) - 1,
+        severity = vim.diagnostic.severity.ERROR,
+        source = "Sanitizer",
+        message = string.format("Sample #%d: %s", testcase_idx, err.message),
+      })
+    end
+  end
+
+  if #diags > 0 then
+    pcall(vim.diagnostic.set, asan_ns, bufnr, diags)
+    -- Jump window cursor directly to the first offending line
+    pcall(vim.api.nvim_win_set_cursor, 0, { errors[1].line, (errors[1].col or 1) - 1 })
+  end
+
+  -- Auto-clear red marks as soon as the user starts editing
+  vim.api.nvim_create_autocmd({ "TextChanged", "InsertEnter" }, {
+    buffer = bufnr,
+    once = true,
+    callback = function()
+      M.clear_asan_errors(bufnr)
+    end,
+  })
+end
+
 function M.submit(url, filepath)
+  local bufnr = vim.fn.bufnr(filepath)
+  M.clear_asan_errors(bufnr)
+
   -- Step 1/3: Comment all dbg statements
   local dbg_count = M.comment_dbg(filepath)
   if dbg_count > 0 then
@@ -335,20 +564,59 @@ function M.submit(url, filepath)
           local source_code = f:read("*a")
           f:close()
 
+          -- Always copy verified, sanitized code to system clipboard
+          pcall(vim.fn.setreg, "+", source_code)
+          pcall(vim.fn.setreg, '"', source_code)
+
+          local platform = "Codeforces"
+          if url:find("atcoder%.jp") then
+            platform = "AtCoder"
+          elseif url:find("codechef%.com") then
+            platform = "CodeChef"
+          elseif url:find("cses%.fi") then
+            platform = "CSES"
+          elseif url:find("leetcode%.com") then
+            platform = "LeetCode"
+          elseif url:find("spoj%.com") then
+            platform = "SPOJ"
+          elseif url:find("kattis%.com") then
+            platform = "Kattis"
+          elseif url:find("maang%.in") or url:find("algozenith") then
+            platform = "AlgoZenith"
+          end
+
           local payload_tbl = {
             empty = false,
             url = url,
             problemName = "",
-            -- Codeforces Language IDs:
-            --   "91" -> GNU G++23 14.2 (64 bit, msys2) [Default / Recommended: 64-bit + __int128_t]
-            --   "89" -> GNU G++20 13.2 (64 bit, winlibs)
-            --   "54" -> GNU G++17 7.3.0 (32-bit: __int128_t not supported)
-            languageId = "91",
+            platform = platform,
+            languageId = M.get_platform_language_id(platform),
             sourceCode = source_code,
           }
 
           current_payload = vim.fn.json_encode(payload_tbl)
+          current_payload_platform = platform
           M.start()
+
+          if platform == "Codeforces" or platform == "CSES" or platform == "AlgoZenith" then
+            -- Live submission watcher for Codeforces
+            if platform == "Codeforces" then
+              vim.defer_fn(function()
+                pcall(function()
+                  require("config.codeforces").watch_submission(nil, nil, nil)
+                end)
+              end, 800)
+            end
+          else
+            -- AtCoder, CodeChef, LeetCode, and other platforms:
+            -- Open submission page in browser (auto-submitted via userscript, or paste fallback)
+            vim.notify(string.format("✅ %s: Opening submission page in browser...", platform), vim.log.levels.INFO, { title = "Submit" })
+            if vim.ui and vim.ui.open then
+              vim.ui.open(url)
+            else
+              vim.system({ "xdg-open", url }, { detach = true })
+            end
+          end
         end)
       end
 
@@ -373,6 +641,7 @@ function M.submit(url, filepath)
           if has_asan_err then
             vim.schedule(function()
               pcall(vim.fn.delete, asan_bin)
+              M.highlight_asan_errors(filepath, err_output, index)
               local msg = string.format("🚨 SANITIZER ERROR ON SAMPLE TESTCASE #%d: SUBMISSION ABORTED!\n\n%s", index, err_output)
               vim.notify(msg, vim.log.levels.ERROR, { title = "Submit Aborted" })
             end)

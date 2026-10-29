@@ -3,7 +3,7 @@
 -- Add any additional keymaps here
 
 -- ==================== Copilot & Contest Mode Menu (<leader>t) ====================
-local copilot_enabled = true
+local copilot_enabled = false
 
 -- <leader>tc: Fast Contest Mode toggle
 vim.keymap.set("n", "<leader>tc", function()

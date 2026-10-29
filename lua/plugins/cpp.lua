@@ -127,13 +127,13 @@ return {
     },
   },
 
-  -- 5. GitHub Copilot: Native inline ghost suggestions (toggled via <leader>tc)
+  -- 5. GitHub Copilot: Native inline ghost suggestions (turned off by default, toggled via <leader>tc)
   {
     "zbirenbaum/copilot.lua",
     opts = {
       suggestion = {
         enabled = true,
-        auto_trigger = true,
+        auto_trigger = false,
         hide_during_completion = false,
         debounce = 75,
         keymap = {
@@ -147,10 +147,14 @@ return {
       },
       panel = { enabled = false },
       filetypes = {
-        markdown = true,
-        help = true,
-        ["*"] = true,
+        markdown = false,
+        help = false,
+        ["*"] = false,
       },
     },
+    config = function(_, opts)
+      require("copilot").setup(opts)
+      vim.cmd("Copilot disable")
+    end,
   },
 }

@@ -2,7 +2,7 @@
 
 A high-performance, keyboard-driven Competitive Programming environment built on top of [LazyVim](https://github.com/LazyVim/LazyVim), GCC 16, C++17 / C++23, mold linker, and a native Lua HTTP server.
 
-This setup replaces the need for VS Code and heavy Node.js background processes with a completely native, terminal-based workflow that compiles in **~0.27s**, automatically fetches testcases from your browser, stress-tests solutions against brute forces, runs AddressSanitizer pre-submission checks, and submits directly to Codeforces with a single keystroke.
+This setup replaces the need for VS Code and heavy background processes with a completely native, terminal-based workflow that compiles in **~0.27s**, automatically fetches testcases from your browser, stress-tests solutions against brute forces, runs Google AddressSanitizer pre-submission diagnostics, monitors live verdicts, predicts rating changes, and submits directly to Codeforces with a single keystroke.
 
 ---
 
@@ -10,37 +10,95 @@ This setup replaces the need for VS Code and heavy Node.js background processes 
 
 - **⚡ Blazing Fast Compilation (~0.27s):** Uses GCC 16 Precompiled Headers (`bits/stdc++.h.gch`) and the ultra-fast `mold` linker with `-O2` to drop compile times from ~2.7s down to ~0.27s.
 - **🚀 Native CPH Server in Lua:** Built-in HTTP listener on port `27121` that communicates directly with browser extensions. Zero external dependencies.
-- **🛡️ 3-Step Pre-Submission Protection:** Running `<leader>rs` automatically comments out all active `dbg(...)` statements (without deleting them), verifies syntax (`-fsyntax-only`), AND compiles with AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases before submitting to prevent accidental penalties.
-- **🔍 Dedicated Local Debug Runner (`<leader>rd`):** Compiles with `-DLOCAL -DDEBUG` to run all saved testcases, printing variables via `dbg(...)`, wrapping outputs in `------`, and measuring execution time in milliseconds.
+- **🛡️ 3-Step Pre-Submission Protection (`<leader>rs`):** Running `<leader>rs` automatically comments out all active `dbg(...)` statements (without deleting them), verifies syntax (`-fsyntax-only`), and compiles with Google AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases. If a memory bug or undefined behavior is detected, submission is halted immediately and your cursor jumps straight to the offending red line!
+- **📊 Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`):** Native Lua integration displaying live contest standings, solve counts, Carrot rating change predictions (`+24` in green, `-26` in red), next rankup targets (`+239 needed to CM`), celebratory promotion banners (`✨ GUARANTEED CANDIDATE MASTER AFTER THIS CONTEST! CONGRATS! ✨`), Repovive problem difficulty estimations (`~1100*`), and What-If solve projections right inside Neovim.
+- **👀 Live Submission Verdict Watcher (`<leader>rw`):** Real-time floating HUD monitoring your latest Codeforces submission through every pretest and system test (`In queue` -> `Running on test 14` -> `Accepted`) until a final verdict is reached.
+- **🔍 Dedicated Local Debug Runner (`<leader>rd` / `<leader>rx`):** Compiles with `-DLOCAL -DDEBUG` to run all saved testcases, printing variables via `dbg(...)`, wrapping outputs in `------`, and measuring execution time in milliseconds.
 - **💥 Automated Stress Testing (`<leader>rb`):** Auto-generates per-problem brute force (`<stem>_brute.cpp`, pre-filled with your template) and generator (`<stem>_gen.cpp`, with random arrays, permutations, strings, and trees). Halts on the first output mismatch and displays the counterexample.
+- **🐘 256 MB Stack Limit Protection:** Automatically configures a 256 MB stack limit (`ulimit -s 262144`) matching Codeforces and ICPC standards, eliminating artificial segmentation faults on deep tree DFS ($N = 2 \times 10^5$).
 - **🎨 Google C++ Style Guide:** Globally formatted with `clang-format` (`BasedOnStyle: Google`) on save and via `<leader>cf`.
-- **📦 On-Demand Algorithm Snippets:** Ultra-clean, minimal default template (~120 lines) paired with instant snippet triggers / fuzzy picker (`rt`) for algorithms and math helpers (`binpow` lambda, `bitops`, `safediv`, `modmath`, `dsu`, `segtree`, `oset`).
-- **💡 Distraction-Free Editing:** Treesitter-powered completion filtering (no comment words in suggestions), 2-second idle auto-save, hybrid line numbering (actual line number at cursor line), and custom statusline metrics.
+- **📦 On-Demand Algorithm Snippets:** Ultra-clean, minimal default template (~120 lines) paired with instant snippet triggers / fuzzy picker (`rt` or `<leader>rt`) for algorithms and math helpers (`binpow` lambda, `bitops`, `safediv`, `modmath`, `dsu`, `segtree`, `oset`).
+- **💡 Distraction-Free & Contest Safe:** GitHub Copilot is disabled by default for anti-cheat contest compliance (toggleable via `<leader>tc`), paired with Treesitter-powered completion filtering, 2-second idle auto-save, hybrid line numbering, and custom statusline metrics.
 
 ---
 
 ## Prerequisites & Installation
 
-### Requirements
+### ⚡ One-Click Automated Setup (`setup.sh`)
+
+If you want an automated, zero-effort installation, clone the repository and run `setup.sh`:
+
+```bash
+# 1. Clone this repository
+git clone git@github.com:RustamSheoran/nvim.git ~/.config/nvim
+cd ~/.config/nvim
+
+# 2. Run the automated setup script
+bash setup.sh
+```
+
+**What `setup.sh` does automatically:**
+- **Config Backup:** Moves any existing `~/.config/nvim` to `~/.config/nvim.bak`.
+- **System Detection:** Detects Arch Linux (`pacman`, `/proc`) or macOS (`brew`).
+- **Non-Interactive Package Installation:** Automatically installs compilers and tools (`pacman -S --noconfirm --needed neovim gcc clang mold nodejs` on Arch Linux, or `brew install neovim gcc llvm mold node` on macOS). Only prompts once for `sudo` password if needed.
+- **Stack Limit Expansion:** Permanently writes 256 MB stack limits (`ulimit -s 262144` on Arch Linux, `ulimit -s 65520` on macOS) into `~/.bashrc` and `~/.zshrc`.
+- **GCC Precompiled Headers:** Automatically locates `bits/stdc++.h` and compiles `bits/stdc++.h.gch` for instant ~0.27s compilation.
+
+---
+
+### Manual Requirements
 - **Neovim** (>= 0.10)
-- **GCC** (`g++`) with C++17 / C++20 / C++23 support
-- **mold** (High-speed modern linker)
+- **C++ Compiler:** GCC (`g++`) or Clang (`clang++`) with C++17 / C++20 / C++23 support
+- **Google Sanitizers:** Google AddressSanitizer (`libasan`) and UndefinedBehaviorSanitizer (`libubsan`)
+- **mold Linker:** High-speed modern linker (`-fuse-ld=mold`)
 - **Browser Extensions:**
   1. [Competitive Companion](https://github.com/jmerle/competitive-companion) -> Parses problem statements and sample test cases from Codeforces, AtCoder, etc.
   2. [cph-submit](https://github.com/agrawal-d/cph-submit) -> Automates submitting solution code to Codeforces directly from the editor.
 
-### Installing `mold` Linker
+---
+
+### Setup Guide for Arch Linux
+
+Arch Linux provides the latest GCC, Clang, Google sanitizers, and `mold` directly in the official repositories.
 
 ```bash
-# Arch Linux
-sudo pacman -S mold
+# 1. Install Neovim, compilers, Google sanitizers, and mold linker
+sudo pacman -S neovim gcc clang mold
 
-# Ubuntu / Debian (22.04+)
-sudo apt update && sudo apt install mold
+# 2. Increase stack limit to 256 MB in your shell configuration
+echo "ulimit -s 262144" >> ~/.bashrc
+echo "ulimit -s 262144" >> ~/.zshrc
 
-# Fedora
-sudo dnf install mold
+# 3. Apply the stack limit to your current terminal session
+ulimit -s 262144
 ```
+
+> [!NOTE]
+> On Arch Linux, `gcc` and `clang` packages include Google AddressSanitizer (`libasan.so`) and UndefinedBehaviorSanitizer (`libubsan.so`) out of the box. No separate sanitizer packages are required.
+
+---
+
+### Setup Guide for macOS
+
+On macOS, install Neovim, toolchains, and `mold` using Homebrew.
+
+```bash
+# 1. Install Neovim, GCC / LLVM Clang, and mold via Homebrew
+brew install neovim gcc llvm mold
+
+# 2. Increase shell stack limit in ~/.zshrc
+echo "ulimit -s 65520" >> ~/.zshrc
+
+# 3. Apply the stack limit to your current terminal session
+ulimit -s 65520
+```
+
+> [!IMPORTANT]
+> **macOS Stack Limits & Binary Flags:**
+> The macOS Darwin kernel enforces a maximum shell soft limit of `65520` KB (~64 MB) for `ulimit -s`.
+> For complete 256 MB stack parity with online judges, you can pass `-Wl,-stack_size,0x10000000` (256 MB) during linking. Clang and Apple Clang have Google AddressSanitizer and UndefinedBehaviorSanitizer built directly into the runtime (`-fsanitize=address,undefined`).
+
+---
 
 ### Installation
 
@@ -55,11 +113,11 @@ git clone git@github.com:RustamSheoran/nvim.git ~/.config/nvim
 nvim
 ```
 
-### GitHub Copilot Setup
-This config includes GitHub Copilot for inline ghost text suggestions across **all programming languages** (C++, Python, TypeScript, Java, HTML, Go, Rust, etc.).
-* **Log In:** Press **`<leader>tl`** -> your device code is auto-copied to clipboard, paste it at [github.com/login/device](https://github.com/login/device)
-* **Log Out:** Press **`<leader>to`** -> signs out of Copilot anytime
-* **Contest Mode:** Press **`<leader>tc`** -> instantly kills Copilot before rated contests to comply with anti-cheating rules
+### GitHub Copilot Setup & Contest Mode
+This config includes GitHub Copilot for inline ghost text suggestions across all programming languages (C++, Python, TypeScript, Java, HTML, Go, Rust, etc.).
+- **Contest Mode (Off by Default):** Copilot starts **disabled by default** to protect you from accidental anti-cheat violations during rated contests. Press **`<leader>tc`** to toggle Copilot on or off anytime.
+- **Log In:** Press **`<leader>tl`** -> your device code is auto-copied to clipboard, paste it at [github.com/login/device](https://github.com/login/device)
+- **Log Out:** Press **`<leader>to`** -> signs out of Copilot anytime
 
 ---
 
@@ -101,6 +159,19 @@ All Neovim CP test runners (`debug_runner`, `stress`, and `competitest`) automat
 - **Essential for Meta Hacker Cup:** In Meta Hacker Cup, problems are run locally on your own machine. Deep recursions will crash without this limit.
 - **Zero Idle Memory Consumption:** In Linux, stack limits are a ceiling, not pre-allocated RAM. A solution using 50 KB uses only 50 KB.
 - **Infinite Recursion Safety:** Accidental runaway recursion hits 256 MB and exits immediately in 0.01s with SIGSEGV, never freezing your PC.
+
+### Ultra-Fast `mold` Linker
+Traditional linkers (`ld` or `gold`) take between 200ms to 500ms just to link standard C++ templates.
+The `mold` linker is a modern, highly-parallel linker designed specifically for instantaneous developer turnaround.
+- Injected via `-fuse-ld=mold`.
+- Links competitive programming binaries in **under 10 milliseconds**.
+- Combined with GCC PCH, overall compile and link cycle finishes in **~0.27s**.
+
+### Google AddressSanitizer & UndefinedBehaviorSanitizer
+Memory safety bugs (such as 1-based indexing into a 0-indexed vector, buffer overflows, or signed integer overflow) often go unnoticed locally on sample tests because uninitialized memory might happen to be zero, only to produce `Runtime Error` or `Wrong Answer` on Codeforces test 14.
+- Pre-submission checks run with `-fsanitize=address,undefined -g`.
+- Catches out-of-bounds array access, null pointer dereference, signed overflow, and memory corruption instantly.
+- Neovim parses sanitizer diagnostics and jumps your cursor directly to the offending line with a red highlight before your submission touches the judge.
 
 ### Clangd LSP Optimization
 To eliminate typing lag and noisy diagnostics:
@@ -250,7 +321,7 @@ When you are stuck on *"Wrong Answer on test 4"* and sample cases pass:
   - Brute force output (`__out_brute.txt`)
 - **100% Submission Safety:** Stress testing files are completely isolated. Submitting (`<leader>rs`) sends **only** your solution buffer.
 
-### 7. Diagnostics with AddressSanitizer (`<leader>rz`)
+### 7. Diagnostics with Google AddressSanitizer (`<leader>rz`)
 - Press `<leader>rz` to compile your code with `-fsanitize=address,undefined -g`.
 - Automatically catches:
   - Segmentation faults / null pointer dereferences.
@@ -258,13 +329,19 @@ When you are stuck on *"Wrong Answer on test 4"* and sample cases pass:
   - Signed integer overflow and undefined behavior.
 - Prints the **exact line number** of the memory bug in your source code!
 
-### 8. Three-Step Pre-Submission Protection (`<leader>rs`)
+### 8. Three-Step Pre-Submission Protection & Red-Line Jump (`<leader>rs`)
 When your solution is ready to submit:
 1. Press `<leader>rs`.
 2. **Step 1: Auto-Comment Debugs:** Automatically finds and comments out all active `dbg(...)` statements (e.g. `// dbg(x);`) in your buffer without deleting them, then saves your file.
 3. **Step 2: Syntax Check:** Runs `g++ -std=c++17 -fsyntax-only`. If there is a typo or missing semicolon, submission aborts immediately.
-4. **Step 3: Sanitizer Sanity Check:** Compiles with `-fsanitize=address,undefined -g` and runs against all saved sample testcases. If an out-of-bounds bug or segfault occurs on the samples, submission is aborted and the exact line number is displayed, saving you from an immediate 50-point penalty on Codeforces!
-5. If clean, Neovim transmits the code to the `cph-submit` browser extension, submitting it to Codeforces automatically.
+4. **Step 3: Sanitizer Sanity Check & Red-Line Jump:** Compiles with `-fsanitize=address,undefined -g` and runs your binary against all saved sample testcases.
+   - If ANY testcase fails (crash, assertion failure, segmentation fault, out-of-bounds memory access, or sanitizer runtime error), **submission is aborted immediately and your code is NEVER submitted to Codeforces or the online judge**.
+   - Neovim displays a clear error alert and jumps your cursor directly to the offending line in your source code with a red highlight, protecting you from an accidental 50-point penalty on Codeforces!
+5. If and only if all pre-submission checks pass cleanly, Neovim transmits the code to the `cph-submit` browser extension, submitting it to Codeforces automatically.
+
+> [!IMPORTANT]
+> **Fail-Safe Submission Lock:**
+> If any testcase fails to execute cleanly or triggers an AddressSanitizer/UBSan violation on sample cases, submission is permanently blocked. Your code will never be sent to the judge until all sample tests execute without errors.
 
 > [!TIP]
 > You can also manually comment or uncomment all `dbg` calls anytime:
@@ -280,26 +357,73 @@ When submitting with `<leader>rs`, Neovim sends the language ID to `cph-submit`.
 | **GNU G++20 13.2 (64 bit, winlibs)** | **`"89"`** | Full 64-bit speed with C++20 on Codeforces. |
 | **GNU G++17 7.3.0** | **`"54"`** | 32-bit compiler. Note: `__int128_t` is not supported on 32-bit GCC. |
 
-### 9. GitHub Copilot & Contest Mode (<leader>t)
+### 9. Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`)
+Press `<leader>rl` while working on any contest problem to open the live Codeforces Contest HUD.
+
+- **Contest Auto-Detection:** Automatically extracts the contest ID from the problem `.url` companion file. If invoked in an independent buffer, prompts for the contest ID.
+- **Configurable Handle:** Remembers your Codeforces handle in `codeforces_handle.txt`. Prompts on first use. Press `s` inside the HUD to change your handle at any time.
+- **Contest Overview & Status:**
+  - Displays contest title and active phase (`CODING`, `PENDING_SYSTEM_TEST`, `SYSTEM_TEST`, `FINISHED`).
+  - Displays your official rank in bold (`Rank #1591`), followed by raw standings rank in faded gray (`(#1290)`) when they differ.
+  - Displays solved problem count and total accumulated points (`Points: 2244 | Solved: 3/7`).
+- **Carrot Elo Rating Predictor:**
+  - Implements the complete Carrot Elo rating prediction algorithm natively in Lua.
+  - Displays your predicted rating delta: positive changes in bold green (`+24`), negative changes in bold red (`-26`).
+  - Next Tier Target: displays remaining points needed to reach your next rankup tier (e.g. `(+239 needed to CM)` styled in purple).
+  - Guaranteed Promotion Alert: when your predicted rating change guarantees crossing into the next tier (e.g. Expert -> Candidate Master), displays a celebratory banner: `✨ GUARANTEED CANDIDATE MASTER AFTER THIS CONTEST! CONGRATS! ✨`.
+- **Repovive Problem Difficulty Estimation:**
+  - Ported natively from Repovive: performs a binary search over competitor ratings and solver count to calculate live estimated problem difficulty (e.g. `[A] ~1100*`, `[B] ~1300*`, `[C] ~1500*`).
+  - System Test Safety: during the `SYSTEM_TEST` phase (when submissions are being re-run and solver counts fluctuate), the binary search is automatically bypassed and displays `-` to prevent distorted ratings.
+- **Unofficial Solves Handling:**
+  - Standard standings query retrieves official participants.
+  - Unofficial submission fetching (`user.status`) is only executed when you are out of the contest or solving unofficially.
+- **What-If Solve Predictions:**
+  - Evaluates remaining unsolved problems and computes your projected rank and rating gain if you solve that problem next:
+    `• Solve [D] [1700] (+1000 pts) -> New Rank: #331 +89`
+- **Interactive Controls inside the HUD:**
+  - `<CR>` or `o`: Instantly opens the selected problem statement in your web browser.
+  - `r`: Refresh contest standings and rating predictions immediately.
+  - `s`: Switch or update your Codeforces handle.
+  - `q` or `<Esc>`: Close the HUD.
+
+### 10. Live Submission Verdict Watcher (`<leader>rw`)
+After submitting your solution, press `<leader>rw` to stream the real-time evaluation verdict directly inside Neovim without opening your browser.
+
+- Reads the contest ID and problem index from `<stem>.url`.
+- Polls the Codeforces API sequentially every 0.6 seconds (0.5s to 0.7s) for your latest submission on the active problem until a final verdict (Accepted, Wrong Answer, etc.) is reached, with zero request overlap.
+- Displays live evaluation states:
+  - `In queue`
+  - `Running on test 1`
+  - `Running on test 14`...
+- Concludes immediately upon final verdict:
+  - `Accepted` (styled in green)
+  - `Wrong answer on test 7` (styled in red)
+  - `Time limit exceeded on test 12`
+  - `Memory limit exceeded on test 3`
+  - `Compilation error`
+- Automatically closes the floating notification once the final verdict is reached.
+
+### 11. GitHub Copilot & Contest Mode (`<leader>t`)
 GitHub Copilot is integrated with native inline ghost text across all programming languages (C++, Python, TypeScript, Java, HTML). It is decoupled from the popup menu, leaving snippets and standard 2-space `<Tab>` untouched.
 
 Key features and controls:
-* `<leader>tc` -> Master Contest Mode switch (turns Copilot completely off during rated contests to comply with anti-cheat rules, press again to re-enable)
-* `<leader>ta` -> Toggle Auto-Trigger (switches between continuous inline ghost text and on-demand mode)
-* `<leader>tr` -> Request suggestion manually (blocked automatically with a warning if Contest Mode is active)
-* `<leader>ts` -> View Copilot connection and auth status
-* `<leader>tp` -> Open suggestions panel with 10 alternative completions
-* `<leader>tl` -> Log in via GitHub device flow (copies code to clipboard)
-* `<leader>to` -> Log out and clear session tokens
-* `Alt + l` -> Accept entire ghost suggestion
-* `Alt + w` -> Accept next word
-* `Alt + j` -> Accept next line
-* `Alt + ]` / `Alt + [` -> Cycle next or previous suggestion
-* `Ctrl + ]` -> Dismiss suggestion
+- **Default State:** Copilot starts **disabled by default** on Neovim startup to comply with Codeforces anti-cheat rules.
+- `<leader>tc` -> Master Contest Mode switch (turns Copilot completely off during rated contests to comply with anti-cheat rules, press again to re-enable)
+- `<leader>ta` -> Toggle Auto-Trigger (switches between continuous inline ghost text and on-demand mode)
+- `<leader>tr` -> Request suggestion manually (blocked automatically with a warning if Contest Mode is active)
+- `<leader>ts` -> View Copilot connection and auth status
+- `<leader>tp` -> Open suggestions panel with 10 alternative completions
+- `<leader>tl` -> Log in via GitHub device flow (copies code to clipboard)
+- `<leader>to` -> Log out and clear session tokens
+- `Alt + l` -> Accept entire ghost suggestion
+- `Alt + w` -> Accept next word
+- `Alt + j` -> Accept next line
+- `Alt + ]` / `Alt + [` -> Cycle next or previous suggestion
+- `Ctrl + ]` -> Dismiss suggestion
 
-### 10. Editor Ergonomics & Visual Customizations
+### 12. Editor Ergonomics & Visual Customizations
 - **2-Second Idle Auto-Save:** Pausing typing for 2 seconds automatically saves the buffer in the background without interrupting your typing or shifting cursor position.
-- **Typo Protection:** Aliased common Shift-typo commands (`:Q` $\rightarrow$ `:q`, `:Qa` $\rightarrow$ `:qa`, `:W` $\rightarrow$ `:w`, `:Wq` $\rightarrow$ `:wq`, `:Wa` $\rightarrow$ `:wa`).
+- **Typo Protection:** Aliased common Shift-typo commands (`:Q` -> `:q`, `:Qa` -> `:qa`, `:W` -> `:w`, `:Wq` -> `:wq`, `:Wa` -> `:wa`).
 - **Hybrid Line Numbers:** Active cursor line displays its actual line number, while lines above and below count upward `1, 2, 3...` for fast vertical jumping (`15j`, `8k`).
 - **Statusline (Bottom-Right):** Displays buffer progress percentage (`Top` / `45%` / `Bot`) alongside cursor position and total file size: `45% Ln %d, Col %d / %d lines`.
 
@@ -309,7 +433,7 @@ Key features and controls:
 
 | Keymap | Action | Description |
 |---|---|---|
-| `<leader>rr` | **Run Testcases** | Compiles in ~0.9s and runs sample cases (press `q` to close) |
+| `<leader>rr` | **Run Testcases** | Compiles in ~0.32s and runs sample cases (press `q` to close) |
 | `<leader>rd` / `<leader>rx` | **Run Local Debug** | Runs testcases with `dbg(...)`, `------`, and Chrono timing |
 | `<leader>rb` | **Stress Test** | Automated loop (solution vs brute) until mismatch found |
 | `<leader>rB` | **Open Brute** | Opens problem brute force (`<stem>_brute.cpp`) in a vertical split |
@@ -319,9 +443,12 @@ Key features and controls:
 | `<leader>ra` | **Add Testcase** | Add a custom test case |
 | `<leader>re` | **Edit Testcase** | Edit existing sample test cases |
 | `<leader>rD` | **Delete Testcase** | Delete a testcase |
-| `<leader>rs` | **Submit** | 3-step verification (comment dbg, syntax, ASan) & submit via `cph-submit` |
+| `<leader>rs` | **Submit** | 3-step verification (comment dbg, syntax, ASan red-line jump) & submit |
+| `<leader>rl` | **CF Standings & Predictor** | Live contest standings, Carrot rating prediction, and Repovive difficulty |
+| `<leader>rw` | **Watch Verdict** | Real-time floating monitor for Codeforces submission verdict |
 | `<leader>rc` | **Comment Debugs** | Comments out all active `dbg(...)` calls in the buffer |
 | `<leader>rC` | **Uncomment Debugs** | Uncomments all `dbg(...)` calls in the buffer |
+| `<leader>rt` / `rt` | **Algorithm Picker** | Browse and insert CP algorithm snippets with live preview |
 | `<leader>tc` | **Toggle Copilot** | Instantly enable/disable Copilot for contest rules |
 | `<leader>ta` | **Toggle Auto-Trigger** | Toggle auto ghost text vs manual on-demand |
 | `<leader>ts` | **Copilot Status** | View Copilot connection, auth, and model info |
@@ -336,6 +463,7 @@ Key features and controls:
 | `<M-]>` / `<M-[>` | **Next / Prev** | Cycle between alternative suggestions |
 | `<C-]>` *(Insert)* | **Dismiss** | Dismiss active ghost suggestion |
 | `<leader>cf` | **Format Code** | Formats buffer with Google C++ Style |
+| `<leader><leader>` | **Find Files** | Fuzzy find files across entire home directory |
 
 ---
 
@@ -1443,3 +1571,50 @@ int main() {
 
 ## Note for Omarchy Users
 If you are running Omarchy OS, this Neovim configuration is entirely independent of the OS config files. Omarchy updates will never touch your `~/.config/nvim/` folder, so keeping your config backed up on GitHub guarantees your CP setup is always safe.
+
+---
+
+## Adding `<bits/stdc++.h>` on macOS
+
+Unlike Linux GCC, macOS ships with Apple Clang (LLVM libc++), which does not bundle the GNU GCC-specific `<bits/stdc++.h>` header by default.
+
+Here is how to set up `<bits/stdc++.h>` on macOS:
+
+### Method 1: Install `bits/stdc++.h` for Clang (Recommended)
+
+1. Create the `bits` directory in your include search path:
+   - **Apple Silicon (M1/M2/M3/M4):**
+     ```bash
+     mkdir -p /opt/homebrew/include/bits
+     ```
+   - **Intel Mac:**
+     ```bash
+     sudo mkdir -p /usr/local/include/bits
+     ```
+
+2. Download the standard library header into that directory:
+   - **Apple Silicon:**
+     ```bash
+     curl -sSL "https://raw.githubusercontent.com/gcc-mirror/gcc/master/libstdc%2B%2B-v3/include/precompiled/stdc%2B%2B.h" -o /opt/homebrew/include/bits/stdc++.h
+     ```
+   - **Intel Mac:**
+     ```bash
+     sudo curl -sSL "https://raw.githubusercontent.com/gcc-mirror/gcc/master/libstdc%2B%2B-v3/include/precompiled/stdc%2B%2B.h" -o /usr/local/include/bits/stdc++.h
+     ```
+
+Clang automatically searches `/opt/homebrew/include` and `/usr/local/include`, allowing `#include <bits/stdc++.h>` to compile cleanly across all your projects.
+
+### Method 2: Use Homebrew GCC
+
+If you prefer using native GNU GCC on macOS:
+
+```bash
+# 1. Install GCC via Homebrew
+brew install gcc
+
+# 2. Add alias to ~/.zshrc (replace 14 with your installed GCC version)
+echo 'alias g++="g++-14"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Homebrew GCC includes `<bits/stdc++.h>` out of the box.

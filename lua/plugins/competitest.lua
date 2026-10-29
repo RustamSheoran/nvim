@@ -1,3 +1,47 @@
+local function detect_judge_and_contest(task)
+  local url = task.url or ""
+  local group = task.group or "Misc"
+  local judge = "Codeforces"
+
+  if task.judge and task.judge ~= "" then
+    judge = task.judge
+  elseif url:find("atcoder%.jp") then
+    judge = "AtCoder"
+  elseif url:find("codechef%.com") then
+    judge = "CodeChef"
+  elseif url:find("cses%.fi") then
+    judge = "CSES"
+  elseif url:find("leetcode%.com") then
+    judge = "LeetCode"
+  elseif url:find("spoj%.com") then
+    judge = "SPOJ"
+  elseif url:find("kattis%.com") then
+    judge = "Kattis"
+  elseif url:find("hackerrank%.com") then
+    judge = "HackerRank"
+  elseif url:find("maang%.in") or url:find("algozenith") then
+    judge = "AlgoZenith"
+  elseif url:find("codeforces%.com") then
+    judge = "Codeforces"
+  else
+    local prefix = group:match("^([%w_]+)%s*%-")
+    if prefix and prefix ~= "" then
+      judge = prefix
+    end
+  end
+
+  local contest = group
+  if contest:find("^" .. judge .. "%s*%-") then
+    contest = contest:gsub("^" .. judge .. "%s*%-%s*", "")
+  end
+  contest = contest:gsub("[^%w_-]", "_"):gsub("_+", "_"):gsub("^_", ""):gsub("_$", "")
+  if contest == "" then
+    contest = "Misc"
+  end
+
+  return judge, contest
+end
+
 return {
   "xeluxee/competitest.nvim",
   dependencies = "MunifTanjim/nui.nvim",
@@ -9,8 +53,7 @@ return {
 
     -- Auto-save URL to a companion .url file when fetched via browser extension
     received_problems_path = function(task, file_extension)
-      local judge = task.judge or "Codeforces"
-      local contest = (task.group or "Misc"):gsub("[^%w_-]", "_")
+      local judge, contest = detect_judge_and_contest(task)
       local name = (task.name or "problem"):gsub("%s+", "_"):gsub("[^%w_-]", "")
       local target_path = string.format("%s/cp/%s/%s/%s.%s", vim.fn.expand("~"), judge, contest, name, file_extension)
 
@@ -176,6 +219,20 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
         end)
       end,
       desc = "Verify compilation, comment dbg, and submit via cph-submit",
+    },
+    {
+      "<leader>rl",
+      function()
+        require("config.codeforces").show_contest_list()
+      end,
+      desc = "Codeforces Contest Problems, Solve Counts & Live Rank",
+    },
+    {
+      "<leader>rw",
+      function()
+        require("config.codeforces").watch_submission()
+      end,
+      desc = "Watch Codeforces Submission Verdict (Live Testcases)",
     },
     {
       "<leader>rc",
