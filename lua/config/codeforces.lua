@@ -213,6 +213,22 @@ end
 -- ==============================================================================
 -- 1. Live Submission Verdict Watcher (Notifications for passed testcases)
 -- ==============================================================================
+-- Desktop OS Notification Helper (Accepted & Final Verdicts Only)
+-- ==============================================================================
+local function send_desktop_notification(title, message, urgency)
+  urgency = urgency or "normal"
+  local is_mac = vim.fn.has("mac") == 1 or vim.fn.has("macunix") == 1
+  if is_mac then
+    local script = string.format('display notification %q with title %q', message, title)
+    pcall(vim.system, { "osascript", "-e", script }, { detach = true })
+  else
+    if vim.fn.executable("notify-send") == 1 then
+      pcall(vim.system, { "notify-send", "-u", urgency, "-a", "Codeforces", title, message }, { detach = true })
+    end
+  end
+end
+
+-- ==============================================================================
 local active_watchers = {}
 
 function M.watch_submission(handle, contest_id, problem_index)
@@ -238,8 +254,11 @@ function M.watch_submission(handle, contest_id, problem_index)
 
   local last_passed = -1
   local attempts = 0
-  local max_attempts = 150 -- ~1.5 to 2 minutes timeout
-  local poll_interval_ms = 600 -- 0.6 seconds
+  local max_attempts = 150 -- ~3.5 minutes timeout
+  local poll_interval_ms = 1500 -- Safe 1.5s interval (guarantees CF token bucket refills; eliminates 10-15s bans)
+  local ua = (vim.fn.has("mac") == 1 or vim.fn.has("macunix") == 1)
+      and "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0"
+    or "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0"
 
   local function poll()
     if not active_watchers[watcher_key] then
@@ -254,7 +273,7 @@ function M.watch_submission(handle, contest_id, problem_index)
     end
 
     local api_url = string.format("https://codeforces.com/api/user.status?handle=%s&from=1&count=5", handle)
-    vim.system({ "curl", "-s", api_url }, { text = true }, function(obj)
+    vim.system({ "curl", "-s", "-A", ua, api_url }, { text = true }, function(obj)
       if not active_watchers[watcher_key] then
         return
       end
@@ -271,7 +290,11 @@ function M.watch_submission(handle, contest_id, problem_index)
 
         local ok, data = pcall(vim.json.decode, obj.stdout)
         if not ok or not data or data.status ~= "OK" or not data.result or #data.result == 0 then
-          vim.defer_fn(poll, poll_interval_ms)
+          -- If Codeforces throttles with "Call limit exceeded", back off 3.5s to replenish token bucket
+          local is_rate_limited = (data and data.comment and data.comment:lower():find("limit exceeded"))
+            or (obj.stdout and obj.stdout:lower():find("limit exceeded"))
+          local delay = is_rate_limited and 3500 or poll_interval_ms
+          vim.defer_fn(poll, delay)
           return
         end
 
@@ -286,6 +309,7 @@ function M.watch_submission(handle, contest_id, problem_index)
         if verdict == nil or verdict == "TESTING" or verdict == "SUBMITTED" then
           if passed > last_passed then
             last_passed = passed
+            -- Intermediate testcase updates stay in Neovim notify ONLY (no OS notification spam)
             if passed > 0 then
               vim.notify(string.format("⏳ [%s] Testcase %d passed... (Running on test %d)", p_idx, passed, passed + 1), vim.log.levels.INFO, { title = "Codeforces Watch" })
             else
@@ -294,35 +318,41 @@ function M.watch_submission(handle, contest_id, problem_index)
           end
           vim.defer_fn(poll, poll_interval_ms)
         else
-          -- Finished judging!
+          -- Finished judging! Trigger desktop OS notification for final verdict only
           active_watchers[watcher_key] = nil
 
           if verdict == "OK" then
             local msg = string.format("🎉 [%s] %s: ACCEPTED!\nPassed %d testcases\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed, time_ms, mem_kb)
             vim.notify(msg, vim.log.levels.INFO, { title = "Codeforces Verdict" })
+            send_desktop_notification("Codeforces: ACCEPTED! 🎉", string.format("[%s] %s: Passed %d testcases (%d ms)", p_idx, p_name, passed, time_ms), "normal")
           elseif verdict == "WRONG_ANSWER" then
             local msg = string.format("❌ [%s] %s: WRONG ANSWER on test %d\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed + 1, time_ms, mem_kb)
             vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
+            send_desktop_notification("Codeforces: WRONG ANSWER ❌", string.format("[%s] %s on test %d (%d ms)", p_idx, p_name, passed + 1, time_ms), "critical")
           elseif verdict == "TIME_LIMIT_EXCEEDED" then
             local msg = string.format("⌛ [%s] %s: TIME LIMIT EXCEEDED on test %d\nTime: %d ms", p_idx, p_name, passed + 1, time_ms)
             vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
+            send_desktop_notification("Codeforces: TIME LIMIT EXCEEDED ⌛", string.format("[%s] %s on test %d (%d ms)", p_idx, p_name, passed + 1, time_ms), "critical")
           elseif verdict == "MEMORY_LIMIT_EXCEEDED" then
             local msg = string.format("💥 [%s] %s: MEMORY LIMIT EXCEEDED on test %d\nMemory: %d KB", p_idx, p_name, passed + 1, mem_kb)
             vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
+            send_desktop_notification("Codeforces: MEMORY LIMIT EXCEEDED 💥", string.format("[%s] %s on test %d (%d KB)", p_idx, p_name, passed + 1, mem_kb), "critical")
           elseif verdict == "COMPILATION_ERROR" then
             local msg = string.format("⚠️ [%s] %s: COMPILATION ERROR", p_idx, p_name)
             vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
+            send_desktop_notification("Codeforces: COMPILATION ERROR ⚠️", string.format("[%s] %s", p_idx, p_name), "critical")
           else
             local msg = string.format("🚨 [%s] %s: %s on test %d\nTime: %d ms | Memory: %d KB", p_idx, p_name, verdict, passed + 1, time_ms, mem_kb)
             vim.notify(msg, vim.log.levels.WARN, { title = "Codeforces Verdict" })
+            send_desktop_notification("Codeforces: " .. verdict:gsub("_", " "), string.format("[%s] %s on test %d", p_idx, p_name, passed + 1), "normal")
           end
         end
       end)
     end)
   end
 
-  -- Start first poll after 500ms
-  vim.defer_fn(poll, 500)
+  -- Start first poll after 1.2s (allows CF compiler to queue and build)
+  vim.defer_fn(poll, 1200)
 end
 
 -- ==============================================================================
@@ -896,6 +926,181 @@ function M.show_contest_list(contest_id)
       step_done()
     end)
   end
+end
+
+-- ==============================================================================
+-- 3. Live Contest Countdown Timer HUD (<leader>rT)
+-- ==============================================================================
+local active_timer_handle = nil
+
+function M.show_contest_timer(contest_id)
+  contest_id = contest_id or M.detect_contest_id()
+  vim.notify("Fetching Codeforces contest schedule...", vim.log.levels.INFO, { title = "Contest Timer" })
+
+  local ua = (vim.fn.has("mac") == 1 or vim.fn.has("macunix") == 1)
+      and "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0"
+    or "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0"
+
+  vim.system({ "curl", "-s", "-A", ua, "https://codeforces.com/api/contest.list?gym=false" }, { text = true }, function(obj)
+    if obj.code ~= 0 or not obj.stdout or obj.stdout == "" then
+      vim.schedule(function()
+        vim.notify("Failed to fetch contest schedule from Codeforces", vim.log.levels.ERROR, { title = "Contest Timer" })
+      end)
+      return
+    end
+
+    local ok, data = pcall(vim.json.decode, obj.stdout)
+    if not ok or not data or data.status ~= "OK" or not data.result then
+      vim.schedule(function()
+        vim.notify("Invalid API response from Codeforces", vim.log.levels.ERROR, { title = "Contest Timer" })
+      end)
+      return
+    end
+
+    vim.schedule(function()
+      local target_contest = nil
+
+      -- 1. If contest_id is provided, match by ID
+      if contest_id then
+        local cid_num = tonumber(contest_id)
+        for _, c in ipairs(data.result) do
+          if c.id == cid_num then
+            target_contest = c
+            break
+          end
+        end
+      end
+
+      -- 2. Otherwise look for an active CODING contest
+      if not target_contest then
+        for _, c in ipairs(data.result) do
+          if c.phase == "CODING" then
+            target_contest = c
+            break
+          end
+        end
+      end
+
+      if not target_contest or target_contest.phase ~= "CODING" then
+        vim.notify("No live Codeforces contest currently in progress.", vim.log.levels.INFO, { title = "Contest Timer" })
+        return
+      end
+
+      -- Create floating timer HUD
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.bo[buf].buftype = "nofile"
+      vim.bo[buf].bufhidden = "wipe"
+
+      local width = 64
+      local height = 10
+      local row = math.floor((vim.o.lines - height) / 2)
+      local col = math.floor((vim.o.columns - width) / 2)
+
+      local win = vim.api.nvim_open_win(buf, true, {
+        relative = "editor",
+        width = width,
+        height = height,
+        row = row,
+        col = col,
+        style = "minimal",
+        border = "rounded",
+        title = " ⏱️ Live Codeforces Contest Timer ",
+        title_pos = "center",
+      })
+
+      local base_time = os.time()
+      local init_rel_time = target_contest.relativeTimeSeconds or 0
+      local duration = target_contest.durationSeconds or 7200
+
+      local function format_duration(sec)
+        local h = math.floor(sec / 3600)
+        local m = math.floor((sec % 3600) / 60)
+        local s = sec % 60
+        return string.format("%02d:%02d:%02d", h, m, s)
+      end
+
+      local function update_hud()
+        if not vim.api.nvim_win_is_valid(win) or not vim.api.nvim_buf_is_valid(buf) then
+          if active_timer_handle then
+            active_timer_handle:close()
+            active_timer_handle = nil
+          end
+          return
+        end
+
+        local elapsed = os.time() - base_time
+        local current_rel = init_rel_time + elapsed
+
+        local lines = {}
+        table.insert(lines, "")
+        local name_line = string.format("  🏆 %s", target_contest.name or "Codeforces Round")
+        if #name_line > width - 2 then
+          name_line = name_line:sub(1, width - 5) .. "..."
+        end
+        table.insert(lines, name_line)
+        table.insert(lines, string.format("  🆔 Contest ID: %s | Duration: %s", tostring(target_contest.id), format_duration(duration)))
+        table.insert(lines, "  " .. string.rep("─", width - 4))
+
+        if current_rel >= 0 and current_rel <= duration then
+          local remaining = math.max(0, duration - current_rel)
+          local pct = math.min(100, math.floor((current_rel / duration) * 100))
+          table.insert(lines, "  🔴 Status: LIVE CONTEST (Coding Phase)")
+          table.insert(lines, string.format("  ⏳ Time Remaining:  %s  (%d%% elapsed)", format_duration(remaining), pct))
+          local bar_width = 30
+          local filled = math.floor((pct / 100) * bar_width)
+          local bar = string.rep("█", filled) .. string.rep("░", bar_width - filled)
+          table.insert(lines, string.format("  [%s]", bar))
+        else
+          table.insert(lines, "  ⚪ Status: FINISHED")
+          table.insert(lines, "  Contest has ended. Check standings with <leader>rl")
+          table.insert(lines, "")
+        end
+
+        table.insert(lines, "  " .. string.rep("─", width - 4))
+        table.insert(lines, "  Press [q] or [Esc] to close")
+
+        vim.bo[buf].modifiable = true
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+        vim.bo[buf].modifiable = false
+      end
+
+      update_hud()
+
+      -- Ticking timer: updates HUD every second while window is open
+      if active_timer_handle then
+        active_timer_handle:close()
+        active_timer_handle = nil
+      end
+
+      local timer = vim.uv.new_timer()
+      active_timer_handle = timer
+      timer:start(1000, 1000, vim.schedule_wrap(update_hud))
+
+      local function close_hud()
+        if active_timer_handle then
+          active_timer_handle:close()
+          active_timer_handle = nil
+        end
+        if vim.api.nvim_win_is_valid(win) then
+          pcall(vim.api.nvim_win_close, win, true)
+        end
+      end
+
+      vim.keymap.set("n", "q", close_hud, { buffer = buf, nowait = true })
+      vim.keymap.set("n", "<Esc>", close_hud, { buffer = buf, nowait = true })
+
+      vim.api.nvim_create_autocmd({ "BufLeave", "BufWipeout" }, {
+        buffer = buf,
+        once = true,
+        callback = function()
+          if active_timer_handle then
+            active_timer_handle:close()
+            active_timer_handle = nil
+          end
+        end,
+      })
+    end)
+  end)
 end
 
 return M

@@ -123,3 +123,27 @@ vim.api.nvim_create_autocmd("BufWritePost", {
   end,
 })
 
+-- ==================== Auto Health Check on CP Directory Entry ====================
+local cp_health_checked = false
+vim.api.nvim_create_autocmd({ "VimEnter", "BufEnter" }, {
+  group = vim.api.nvim_create_augroup("CpAutoHealthCheck", { clear = true }),
+  callback = function()
+    if cp_health_checked then
+      return
+    end
+    local cwd = vim.fn.getcwd()
+    local bufname = vim.api.nvim_buf_get_name(0)
+    local cp_path = vim.fn.expand("~/cp")
+
+    if cwd:find(cp_path, 1, true) or bufname:find(cp_path, 1, true) then
+      cp_health_checked = true
+      vim.defer_fn(function()
+        pcall(function()
+          require("config.cp_health").check({ auto = true })
+        end)
+      end, 300)
+    end
+  end,
+})
+
+

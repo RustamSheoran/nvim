@@ -102,6 +102,10 @@ int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
+    // Meta Hacker Cup / USACO file I/O (uncomment to redirect; creates output.txt automatically):
+    // freopen("input.txt", "r", stdin);
+    // freopen("output.txt", "w", stdout);
+
     int t = 1;
     cin >> t;
 #ifdef LOCAL

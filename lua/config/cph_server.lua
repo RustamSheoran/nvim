@@ -48,6 +48,45 @@ function M.detect_judge_and_contest(task)
   return judge, contest
 end
 
+function M.get_problem_target_path(task, file_extension)
+  file_extension = file_extension or "cpp"
+  local url = task.url or ""
+  local group = task.group or ""
+  local name = task.name or "problem"
+
+  local is_mhc = url:find("facebook%.com/codingcompetitions") ~= nil
+    or url:find("hacker%-cup") ~= nil
+    or url:find("metahackercup") ~= nil
+    or group:lower():find("hacker%s*cup") ~= nil
+    or group:lower():find("metahackercup") ~= nil
+
+  if is_mhc then
+    local year = url:match("hacker%-cup/(20%d%d)")
+      or group:match("(20%d%d)")
+      or os.date("%Y")
+
+    local round = url:match("hacker%-cup/%d+/([^/]+)")
+      or group:match("Round%s*([%w_]+)")
+      or group:match("Practice%s*Round")
+      or "round"
+    round = round:lower():gsub("[^%w]", "")
+
+    local letter = url:match("problems?/([%w_]+)")
+      or name:match("^([A-Z]%d?)%s*[:%-]")
+      or name:match("^([A-Z]%d?)%s+")
+      or name:match("^([A-Z]%d?)$")
+      or name:gsub("%s+", "_"):gsub("[^%w_-]", "")
+
+    local prob_name = letter:match("^[A-Z]%d?$") and ("problem" .. letter) or letter
+    return string.format("%s/cp/MetaHackerCup/%s/%s/%s/%s.%s",
+      vim.fn.expand("~"), year, round, prob_name, prob_name, file_extension)
+  end
+
+  local judge, contest = M.detect_judge_and_contest(task)
+  local clean_name = name:gsub("%s+", "_"):gsub("[^%w_-]", "")
+  return string.format("%s/cp/%s/%s/%s.%s", vim.fn.expand("~"), judge, contest, clean_name, file_extension)
+end
+
 function M.get_platform_language_id(platform, lang)
   lang = lang or "cpp"
   local mapping = {
@@ -555,7 +594,7 @@ function M.submit(url, filepath)
       local function do_submit()
         vim.schedule(function()
           pcall(vim.fn.delete, asan_bin)
-          vim.notify("✅ Sanity check passed! Submitting code to cph-submit...", vim.log.levels.INFO, { title = "Submit" })
+          vim.notify("✅ Sanity check passed! Submitting code...", vim.log.levels.INFO, { title = "Submit" })
 
           local f = io.open(filepath, "r")
           if not f then
@@ -585,38 +624,79 @@ function M.submit(url, filepath)
             platform = "AlgoZenith"
           end
 
-          local payload_tbl = {
-            empty = false,
-            url = url,
-            problemName = "",
-            platform = platform,
-            languageId = M.get_platform_language_id(platform),
-            sourceCode = source_code,
-          }
+          local function fallback_browser_submit()
+            local payload_tbl = {
+              empty = false,
+              url = url,
+              problemName = "",
+              platform = platform,
+              languageId = M.get_platform_language_id(platform),
+              sourceCode = source_code,
+            }
 
-          current_payload = vim.fn.json_encode(payload_tbl)
-          current_payload_platform = platform
-          M.start()
+            current_payload = vim.fn.json_encode(payload_tbl)
+            current_payload_platform = platform
+            M.start()
 
-          if platform == "Codeforces" or platform == "CSES" or platform == "AlgoZenith" then
-            -- Live submission watcher for Codeforces
-            if platform == "Codeforces" then
-              vim.defer_fn(function()
-                pcall(function()
-                  require("config.codeforces").watch_submission(nil, nil, nil)
-                end)
-              end, 800)
-            end
-          else
-            -- AtCoder, CodeChef, LeetCode, and other platforms:
-            -- Open submission page in browser (auto-submitted via userscript, or paste fallback)
-            vim.notify(string.format("✅ %s: Opening submission page in browser...", platform), vim.log.levels.INFO, { title = "Submit" })
-            if vim.ui and vim.ui.open then
-              vim.ui.open(url)
+            if platform == "Codeforces" or platform == "CSES" or platform == "AlgoZenith" then
+              if platform == "Codeforces" then
+                vim.notify("Opening Codeforces submission in browser via cph-submit...", vim.log.levels.INFO, { title = "Submit" })
+                if vim.ui and vim.ui.open then
+                  vim.ui.open(url)
+                else
+                  vim.system({ "xdg-open", url }, { detach = true })
+                end
+                vim.defer_fn(function()
+                  pcall(function()
+                    require("config.codeforces").watch_submission(nil, nil, nil)
+                  end)
+                end, 800)
+              end
             else
-              vim.system({ "xdg-open", url }, { detach = true })
+              -- AtCoder, CodeChef, LeetCode, and other platforms:
+              vim.notify(string.format("✅ %s: Opening submission page in browser...", platform), vim.log.levels.INFO, { title = "Submit" })
+              if vim.ui and vim.ui.open then
+                vim.ui.open(url)
+              else
+                vim.system({ "xdg-open", url }, { detach = true })
+              end
             end
           end
+
+          -- If Codeforces: first attempt headless cookie submission if enabled
+          if platform == "Codeforces" then
+            local cf_cookie = require("config.cf_cookie_submit")
+            if cf_cookie.is_cookie_allowed() then
+              vim.notify("🚀 Submitting directly via browser cookies (zero browser overhead)...", vim.log.levels.INFO, { title = "Codeforces Submit" })
+              cf_cookie.submit(url, filepath, function(ok, result_or_err)
+                if ok then
+                  local handle = type(result_or_err) == "table" and result_or_err.handle
+                  local c_id = type(result_or_err) == "table" and result_or_err.contest_id
+                  local p_idx = type(result_or_err) == "table" and result_or_err.problem_index
+                  vim.notify(string.format("✅ Codeforces submission sent for %s (%s)! Watching verdict...", p_idx or "problem", handle or "user"), vim.log.levels.INFO, { title = "Codeforces Submit" })
+                  pcall(function()
+                    require("config.codeforces").watch_submission(handle, c_id, p_idx)
+                  end)
+                else
+                  if result_or_err == "not_logged_in" then
+                    -- User was notified and login page was opened in browser
+                    return
+                  end
+                  local reason = type(result_or_err) == "string" and result_or_err or "Submission failed"
+                  vim.notify(string.format("⚠️ Headless cookie submit failed (%s). Falling back to browser cph-submit...", reason), vim.log.levels.WARN, { title = "Codeforces Submit" })
+                  fallback_browser_submit()
+                end
+              end)
+              return
+            else
+              -- Cookie submit is disabled globally by user (<leader>rk)
+              fallback_browser_submit()
+              return
+            end
+          end
+
+          -- Non-Codeforces platforms:
+          fallback_browser_submit()
         end)
       end
 

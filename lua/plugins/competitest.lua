@@ -42,6 +42,47 @@ local function detect_judge_and_contest(task)
   return judge, contest
 end
 
+local function get_problem_target_path(task, file_extension)
+  file_extension = file_extension or "cpp"
+  local url = task.url or ""
+  local group = task.group or ""
+  local name = task.name or "problem"
+
+  -- Separate Meta Hacker Cup problems into dedicated directories
+  -- (Prevents output.txt from being overwritten across different problems)
+  local is_mhc = url:find("facebook%.com/codingcompetitions") ~= nil
+    or url:find("hacker%-cup") ~= nil
+    or url:find("metahackercup") ~= nil
+    or group:lower():find("hacker%s*cup") ~= nil
+    or group:lower():find("metahackercup") ~= nil
+
+  if is_mhc then
+    local year = url:match("hacker%-cup/(20%d%d)")
+      or group:match("(20%d%d)")
+      or os.date("%Y")
+
+    local round = url:match("hacker%-cup/%d+/([^/]+)")
+      or group:match("Round%s*([%w_]+)")
+      or group:match("Practice%s*Round")
+      or "round"
+    round = round:lower():gsub("[^%w]", "")
+
+    local letter = url:match("problems?/([%w_]+)")
+      or name:match("^([A-Z]%d?)%s*[:%-]")
+      or name:match("^([A-Z]%d?)%s+")
+      or name:match("^([A-Z]%d?)$")
+      or name:gsub("%s+", "_"):gsub("[^%w_-]", "")
+
+    local prob_name = letter:match("^[A-Z]%d?$") and ("problem" .. letter) or letter
+    return string.format("%s/cp/MetaHackerCup/%s/%s/%s/%s.%s",
+      vim.fn.expand("~"), year, round, prob_name, prob_name, file_extension)
+  end
+
+  local judge, contest = detect_judge_and_contest(task)
+  local clean_name = name:gsub("%s+", "_"):gsub("[^%w_-]", "")
+  return string.format("%s/cp/%s/%s/%s.%s", vim.fn.expand("~"), judge, contest, clean_name, file_extension)
+end
+
 return {
   "xeluxee/competitest.nvim",
   dependencies = "MunifTanjim/nui.nvim",
@@ -53,9 +94,7 @@ return {
 
     -- Auto-save URL to a companion .url file when fetched via browser extension
     received_problems_path = function(task, file_extension)
-      local judge, contest = detect_judge_and_contest(task)
-      local name = (task.name or "problem"):gsub("%s+", "_"):gsub("[^%w_-]", "")
-      local target_path = string.format("%s/cp/%s/%s/%s.%s", vim.fn.expand("~"), judge, contest, name, file_extension)
+      local target_path = get_problem_target_path(task, file_extension)
 
       if task.url and task.url ~= "" then
         local dir = vim.fn.fnamemodify(target_path, ":h")
@@ -228,13 +267,6 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
       desc = "Codeforces Contest Problems, Solve Counts & Live Rank",
     },
     {
-      "<leader>rw",
-      function()
-        require("config.codeforces").watch_submission()
-      end,
-      desc = "Watch Codeforces Submission Verdict (Live Testcases)",
-    },
-    {
       "<leader>rc",
       function()
         local filepath = vim.fn.expand("%:p")
@@ -251,6 +283,41 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
         vim.notify(string.format("Uncommented %d dbg statement(s)", count), vim.log.levels.INFO, { title = "Debug" })
       end,
       desc = "Uncomment all dbg statements in buffer",
+    },
+    {
+      "<leader>rk",
+      function()
+        require("config.cf_cookie_submit").toggle_cookie_allowed()
+      end,
+      desc = "Toggle Headless Cookie Submit (Global Privacy Consent)",
+    },
+    {
+      "<leader>rh",
+      function()
+        require("config.cp_health").check()
+      end,
+      desc = "Pre-Contest Environment Health Check (GCC, Mold, PCH, Stack)",
+    },
+    {
+      "<leader>rT",
+      function()
+        require("config.codeforces").show_contest_timer()
+      end,
+      desc = "Codeforces Contest Timer & Live Countdown HUD",
+    },
+    {
+      "<leader>rm",
+      function()
+        require("config.file_runner").run()
+      end,
+      desc = "Meta Input: Pick file from ~/Downloads & run with redirection",
+    },
+    {
+      "<leader>rf",
+      function()
+        require("config.file_runner").run()
+      end,
+      desc = "File Runner: Pick input file & run with redirection",
     },
   },
 }

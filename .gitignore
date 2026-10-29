@@ -15,3 +15,8 @@ data
 Session.vim
 Sessionx.vim
 *.shada
+
+# User local runtime state
+codeforces_handle.txt
+cf_cookie_consent.txt
+
