@@ -236,7 +236,21 @@ To eliminate typing lag and noisy diagnostics:
 
 *(Note: The `<leader>` key is mapped to **Spacebar**)*
 
-### 1. One-Click Problem Fetching
+### 1. Pre-Contest Environment Health Check (`<leader>rh` & Auto on Startup)
+Press `<leader>rh` before any rated round (or open any file inside `~/cp` for an automatic background check) to verify your environment via [`lua/config/cp_health.lua`](lua/config/cp_health.lua):
+1. **GCC Compiler:** Verifies `g++` path and version.
+2. **Mold Fast Linker:** Confirms `mold` is active for fast linking.
+3. **Bits Precompiled Header:** Verifies `<bits/stdc++.h.gch>` exists and loads in ~0.12s.
+4. **Stack Limit:** Confirms your shell has 262,144 KB or unlimited stack for recursion safety.
+5. **CF Cookie Submission:** Checks if Zen/browser cookies are available for headless submit.
+6. **Codeforces Handle:** Confirms handle is set for standings and live watcher.
+7. **Companion Server:** Verifies port 27121 is ready for Competitive Companion.
+8. **Sanitizer Protection:** Validates that `-fsanitize=address,undefined` executes cleanly.
+
+> [!TIP]
+> Opening Neovim in your `~/cp` directory automatically verifies your environment in the background via [`lua/config/autocmds.lua`](lua/config/autocmds.lua). If all 8 checks pass, a subtle notification confirms readiness; if anything needs attention, the full checklist pops up immediately.
+
+### 2. One-Click Problem Fetching
 1. Open Neovim in your `~/cp` directory.
 2. In your browser, open any Codeforces or AtCoder problem and click the **green plus icon** (Competitive Companion).
 3. **What happens automatically:**
@@ -260,7 +274,7 @@ When a problem is fetched, Neovim creates an organized problem workspace:
 
 - **Persistent Testcases:** Custom testcases added with `<leader>ra`, edited with `<leader>re`, or deleted with `<leader>rD` are saved directly into `<Problem>.testcases`. They persist permanently across Neovim sessions.
 
-### 2. On-Demand Algorithm Snippets & Interactive Picker
+### 3. On-Demand Algorithm Snippets & Interactive Picker
 Instead of bloating your base template with thousands of lines of unused algorithms, insert algorithms on demand:
 - **Interactive Picker (`<leader>rt` or `rt`):** Press `<leader>rt` (or `rt`) in normal mode to open a fuzzy picker showing every algorithm, its prefix, and a live syntax-highlighted code preview. Press `<Enter>` on any algorithm to insert it instantly at your cursor!
 - **Insert Mode Completion:** Type any prefix below while coding and press `<Enter>` or `<Tab>` to expand it directly.
@@ -343,21 +357,21 @@ Instead of bloating your base template with thousands of lines of unused algorit
 - `dbg` $\rightarrow$ `dbg(x);`
 </details>
 
-### 3. Google C++ Code Formatting
+### 4. Google C++ Code Formatting
 Formatted with `clang-format` enforcing the official **Google C++ Style Guide** (`~/.clang-format`):
 - **2 Spaces Indentation:** Clean, compact nested logic.
 - **Attached Braces:** Opening braces stay on the same line (`if (n > 0) {`).
 - **Left-Aligned Pointers:** `int* ptr;`, `vector<int>& v;`.
 - **On by Default:** Automatically formats your code on save or whenever you leave insert mode. Press `<leader>cf` to manually format anytime.
 
-### 4. Running Sample Testcases (`<leader>rr`)
+### 5. Running Sample Testcases (`<leader>rr`)
 - Press `<leader>rr` to run your solution against the sample testcases using `competitest.nvim`.
 - Compiles in **~0.32s** with `g++ -O2 -std=c++17 -fuse-ld=mold`.
 - **Clean Diff View:** Displays inputs, outputs, and expected outputs side by side with green/red status.
 - **Custom Cases:** Press `<leader>ra` to add custom test cases, `<leader>re` to edit, or `<leader>rD` to delete.
 - **Fast Close:** When the CompetiTest window is open, press single key **`q`**, **`Q`**, or **`<Esc>`** to close it instantly.
 
-### 5. Local Debugging (`<leader>rd` or `<leader>rx`)
+### 6. Local Debugging (`<leader>rd` or `<leader>rx`)
 When you want to inspect variables, verify execution time, or test custom inputs:
 - Press `<leader>rd` (or `<leader>rx`).
 - Compiles with **`-DLOCAL -DDEBUG`**.
@@ -370,7 +384,7 @@ When you want to inspect variables, verify execution time, or test custom inputs
   2. Offers an optional interactive prompt to test arbitrary manual inputs.
 - **Zero Online Judge Cost:** On Codeforces (where `-DDEBUG` and `-DLOCAL` are not defined), `dbg(...)` automatically compiles into `42` (a zero-cost no-op stripped by the compiler). You never need to delete your debug statements before submitting!
 
-### 6. Automated Stress Testing (`<leader>rb`)
+### 7. Automated Stress Testing (`<leader>rb`)
 When you are stuck on *"Wrong Answer on test 4"* and sample cases pass:
 - Press `<leader>rb` (Run Brute-force / Stress test).
 - **Per-Problem Isolated Files:**
@@ -390,7 +404,7 @@ When you are stuck on *"Wrong Answer on test 4"* and sample cases pass:
   - Brute force output (`__out_brute.txt`)
 - **100% Submission Safety:** Stress testing files are completely isolated. Submitting (`<leader>rs`) sends **only** your solution buffer.
 
-### 7. Diagnostics with Google AddressSanitizer (`<leader>rz`)
+### 8. Diagnostics with Google AddressSanitizer (`<leader>rz`)
 - Press `<leader>rz` to compile your code with `-fsanitize=address,undefined -g`.
 - Automatically catches:
   - Segmentation faults / null pointer dereferences.
@@ -398,7 +412,7 @@ When you are stuck on *"Wrong Answer on test 4"* and sample cases pass:
   - Signed integer overflow and undefined behavior.
 - Prints the **exact line number** of the memory bug in your source code!
 
-### 8. Three-Step Pre-Submission Protection & Red-Line Jump (`<leader>rs`)
+### 9. Three-Step Pre-Submission Protection & Red-Line Jump (`<leader>rs`)
 When your solution is ready to submit:
 1. Press `<leader>rs`.
 2. **Step 1: Auto-Comment Debugs:** Automatically finds and comments out all active `dbg(...)` statements (e.g. `// dbg(x);`) in your buffer without deleting them, then saves your file.
@@ -441,7 +455,41 @@ While Codeforces submissions are handled natively via the `cph-submit` extension
 2. Automatically copies the sanitized, clean code to your system clipboard (`+` and `"` registers).
 3. Automatically opens the problem submission page in your default browser, ready for immediate paste and submit!
 
-### 9. Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`)
+### 10. Automated Live Submission Verdict Watcher
+Whenever you submit a problem using `<leader>rs` (or headless cookie submit), Neovim automatically streams the real-time evaluation verdict with zero manual intervention required:
+- Sequential 1.5-second polling interval with custom browser User-Agent headers, preventing Cloudflare 403 blocks and API rate limits while eliminating contest anxiety.
+- Displays live evaluation states inside Neovim notifications:
+  - **In queue**
+  - **Running on test 1**
+  - **Running on test 14...**
+- Concludes immediately upon final verdict:
+  - **Accepted** (styled in green)
+  - **Wrong answer on test 7** (styled in red)
+  - **Time limit exceeded on test 12**
+  - **Memory limit exceeded on test 3**
+  - **Compilation error**
+- **Native OS Desktop Notification:** When judging completes, Neovim triggers a native desktop notification (`notify-send` on Linux, `osascript` on macOS) for the final verdict (**Accepted** / **Wrong Answer**). Intermediate testcase notifications stay inside Neovim so your desktop is never spammed.
+
+#### Codeforces API Rate Limiting Architecture & Safety Guarantees
+Online judges enforce strict API consumption rules to protect their backend servers during high-volume rated contests. Here is how Codeforces rate limiting functions and how our native watcher guarantees you will never be throttled or banned:
+
+1. **The Token Bucket Algorithm:**
+   - Codeforces enforces a Token Bucket rate limiting algorithm with a capacity of **5 tokens** (requests).
+   - The token bucket continuously refills at a steady rate of **1 token per second**.
+   - **Burst Handling:** You can safely fire a burst of 2 to 3 requests in a single second because the token bucket absorbs the spike without issue.
+   - **Sustained Consumption:** If a script sends requests continuously faster than 1 request per second (e.g. polling every 500 ms or 800 ms), the bucket runs out of tokens within 8 to 10 seconds.
+
+2. **The Two Rate Limiting Tiers:**
+   - **Tier 1 (Soft API Throttle):** When the token bucket runs dry, the Codeforces API returns a JSON response with `"status": "FAILED"` and `"comment": "Call limit exceeded"`. This is a temporary soft throttle. If your client pauses requests for **1 to 2 seconds**, the token bucket replenishes with 1 to 2 new tokens and requests succeed again immediately.
+   - **Tier 2 (Cloudflare WAF IP Ban):** If an aggressive script ignores the `Call limit exceeded` error and keeps spamming requests without backing off, Cloudflare's Web Application Firewall (WAF) classifies the traffic as a denial-of-service attack. Cloudflare then issues a full HTTP 403 Forbidden captcha block. This Tier 2 ban locks your IP address out of the Codeforces API for **10 to 30 minutes**.
+
+3. **Why Our Watcher Guarantees Zero Rate Limits or Bans:**
+   - **1.5s Sequential Polling:** Requests are never fired on an uncontrolled timer loop. Each request waits 1.5 seconds *after* the previous response completes (with a 1.2s initial delay). Because 1.5 seconds is greater than the 1.0 second refill period, the token bucket remains full during normal polling.
+   - **3.5s Adaptive Backoff:** If a `Call limit exceeded` response is ever received (for example, if another browser tab, extension, or tool is concurrently accessing the API), the watcher detects it immediately and backs off for **3.5 seconds**. This gives the bucket enough time to regenerate 3 to 4 tokens, fully clearing the Tier 1 throttle before any new request is dispatched and completely preventing Tier 2 Cloudflare WAF bans.
+   - **Browser User-Agent Header:** Every query sends a realistic browser User-Agent header, preventing Cloudflare from flagging your requests as unauthenticated bot scrapers.
+   - **Zero Contest Anxiety:** You never need to manually refresh standings or submit pages during a round. The watcher operates quietly in the background and delivers an instant OS notification the second your final verdict arrives.
+
+### 11. Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`)
 Press `<leader>rl` while working on any contest problem to open the live Codeforces Contest HUD.
 
 - **Contest Auto-Detection:** Automatically extracts the contest ID from the problem `.url` companion file. If invoked in an independent buffer, prompts for the contest ID.
@@ -492,60 +540,12 @@ Pressing `<leader>rl` opens a floating real-time dashboard:
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 10. Automated Live Submission Verdict Watcher
-Whenever you submit a problem using `<leader>rs` (or headless cookie submit), Neovim automatically streams the real-time evaluation verdict with zero manual intervention required:
-- Sequential 1.5-second polling interval with custom browser User-Agent headers, preventing Cloudflare 403 blocks and API rate limits while eliminating contest anxiety.
-- Displays live evaluation states inside Neovim notifications:
-  - **In queue**
-  - **Running on test 1**
-  - **Running on test 14...**
-- Concludes immediately upon final verdict:
-  - **Accepted** (styled in green)
-  - **Wrong answer on test 7** (styled in red)
-  - **Time limit exceeded on test 12**
-  - **Memory limit exceeded on test 3**
-  - **Compilation error**
-- **Native OS Desktop Notification:** When judging completes, Neovim triggers a native desktop notification (`notify-send` on Linux, `osascript` on macOS) for the final verdict (**Accepted** / **Wrong Answer**). Intermediate testcase notifications stay inside Neovim so your desktop is never spammed.
-
-#### Codeforces API Rate Limiting Architecture & Safety Guarantees
-Online judges enforce strict API consumption rules to protect their backend servers during high-volume rated contests. Here is how Codeforces rate limiting functions and how our native watcher guarantees you will never be throttled or banned:
-
-1. **The Token Bucket Algorithm:**
-   - Codeforces enforces a Token Bucket rate limiting algorithm with a capacity of **5 tokens** (requests).
-   - The token bucket continuously refills at a steady rate of **1 token per second**.
-   - **Burst Handling:** You can safely fire a burst of 2 to 3 requests in a single second because the token bucket absorbs the spike without issue.
-   - **Sustained Consumption:** If a script sends requests continuously faster than 1 request per second (e.g. polling every 500 ms or 800 ms), the bucket runs out of tokens within 8 to 10 seconds.
-
-2. **The Two Rate Limiting Tiers:**
-   - **Tier 1 (Soft API Throttle):** When the token bucket runs dry, the Codeforces API returns a JSON response with `"status": "FAILED"` and `"comment": "Call limit exceeded"`. This is a temporary soft throttle. If your client pauses requests for **1 to 2 seconds**, the token bucket replenishes with 1 to 2 new tokens and requests succeed again immediately.
-   - **Tier 2 (Cloudflare WAF IP Ban):** If an aggressive script ignores the `Call limit exceeded` error and keeps spamming requests without backing off, Cloudflare's Web Application Firewall (WAF) classifies the traffic as a denial-of-service attack. Cloudflare then issues a full HTTP 403 Forbidden captcha block. This Tier 2 ban locks your IP address out of the Codeforces API for **10 to 30 minutes**.
-
-3. **Why Our Watcher Guarantees Zero Rate Limits or Bans:**
-   - **1.5s Sequential Polling:** Requests are never fired on an uncontrolled timer loop. Each request waits 1.5 seconds *after* the previous response completes (with a 1.2s initial delay). Because 1.5 seconds is greater than the 1.0 second refill period, the token bucket remains full during normal polling.
-   - **3.5s Adaptive Backoff:** If a `Call limit exceeded` response is ever received (for example, if another browser tab, extension, or tool is concurrently accessing the API), the watcher detects it immediately and backs off for **3.5 seconds**. This gives the bucket enough time to regenerate 3 to 4 tokens, fully clearing the Tier 1 throttle before any new request is dispatched and completely preventing Tier 2 Cloudflare WAF bans.
-   - **Browser User-Agent Header:** Every query sends a realistic browser User-Agent header, preventing Cloudflare from flagging your requests as unauthenticated bot scrapers.
-   - **Zero Contest Anxiety:** You never need to manually refresh standings or submit pages during a round. The watcher operates quietly in the background and delivers an instant OS notification the second your final verdict arrives.
-
-### 11. Codeforces Live Contest Timer (`<leader>rT`)
+### 12. Codeforces Live Contest Timer (`<leader>rT`)
 Press `<leader>rT` anytime during a live contest to view the remaining time and active coding status:
 - **Live Contests (Coding Phase):** Displays remaining contest time with an active ASCII progress bar ticking down every second (**⏳ Time Remaining: 01:23:45 (42% elapsed)**).
 - **Finished Contests:** Displays completed status and points you to live standings via `<leader>rl`.
 - Upcoming contest countdowns have been intentionally removed to keep the interface minimal and focused strictly on the active round.
 - Press `q` or `Esc` to close the floating timer anytime.
-
-### 12. Pre-Contest Environment Health Check (`<leader>rh` & Auto on Startup)
-Press `<leader>rh` before any rated round (or open any file inside `~/cp` for an automatic background check) to verify your environment via [`lua/config/cp_health.lua`](lua/config/cp_health.lua):
-1. **GCC Compiler:** Verifies `g++` path and version.
-2. **Mold Fast Linker:** Confirms `mold` is active for fast linking.
-3. **Bits Precompiled Header:** Verifies `<bits/stdc++.h.gch>` exists and loads in ~0.12s.
-4. **Stack Limit:** Confirms your shell has 262,144 KB or unlimited stack for recursion safety.
-5. **CF Cookie Submission:** Checks if Zen/browser cookies are available for headless submit.
-6. **Codeforces Handle:** Confirms handle is set for standings and live watcher.
-7. **Companion Server:** Verifies port 27121 is ready for Competitive Companion.
-8. **Sanitizer Protection:** Validates that `-fsanitize=address,undefined` executes cleanly.
-
-> [!TIP]
-> Opening Neovim in your `~/cp` directory automatically verifies your environment in the background via [`lua/config/autocmds.lua`](lua/config/autocmds.lua). If all 8 checks pass, a subtle notification confirms readiness; if anything needs attention, the full checklist pops up immediately.
 
 ### 13. Meta Hacker Cup & USACO File Runner (`<leader>rm` / `<leader>rf`)
 Meta Hacker Cup requires uploading generated `output.txt` files against large official inputs:
