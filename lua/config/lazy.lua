@@ -51,3 +51,6 @@ require("lazy").setup({
     },
   },
 })
+
+-- Ensure user autocmds are always loaded on startup
+pcall(require, "config.autocmds")
