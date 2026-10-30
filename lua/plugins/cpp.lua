@@ -1,3 +1,16 @@
+local function find_clang_format()
+  for _, path in ipairs({
+    "/usr/bin/clang-format",
+    "/opt/homebrew/bin/clang-format",
+    "/usr/local/bin/clang-format",
+  }) do
+    if vim.fn.executable(path) == 1 then
+      return path
+    end
+  end
+  return "clang-format"
+end
+
 return {
   -- 1. Fast completion: prioritize exact matches & CP macros, disable popup inside comments
   {
@@ -87,7 +100,7 @@ return {
       },
       formatters = {
         ["clang-format"] = {
-          command = vim.fn.executable("clang-format") == 1 and "clang-format" or "/usr/bin/clang-format",
+          command = find_clang_format(),
           condition = function(self, ctx)
             -- 1. Never format leetcode_template.cpp directly
             local filename = vim.fn.fnamemodify(ctx.filename, ":t")

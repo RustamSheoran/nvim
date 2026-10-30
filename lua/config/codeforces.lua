@@ -254,14 +254,24 @@ function M.watch_submission(handle, contest_id, problem_index)
 
   local last_passed = -1
   local attempts = 0
-  local max_attempts = 150 -- ~3.5 minutes timeout
-  local poll_interval_ms = 1500 -- Safe 1.5s interval (guarantees CF token bucket refills; eliminates 10-15s bans)
+  local max_attempts = 200 -- ~3.5 minutes timeout
+  local poll_interval_ms = 700 -- Fast 700ms sleep after response (combined with ~350-400ms curl = ~1.05s-1.1s total on-the-wire cycle)
+  local min_request_gap_ms = 1000 -- Hard floor: strictly enforce >= 1000ms between requests on the wire
+  local last_req_time = 0
+  local watch_start_ts = os.time()
   local ua = (vim.fn.has("mac") == 1 or vim.fn.has("macunix") == 1)
       and "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0"
     or "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0"
 
   local function poll()
     if not active_watchers[watcher_key] then
+      return
+    end
+
+    local now = vim.uv.now()
+    local elapsed = now - last_req_time
+    if elapsed < min_request_gap_ms then
+      vim.defer_fn(poll, min_request_gap_ms - elapsed)
       return
     end
 
@@ -272,6 +282,7 @@ function M.watch_submission(handle, contest_id, problem_index)
       return
     end
 
+    last_req_time = vim.uv.now()
     local api_url = string.format("https://codeforces.com/api/user.status?handle=%s&from=1&count=5", handle)
     vim.system({ "curl", "-s", "-A", ua, api_url }, { text = true }, function(obj)
       if not active_watchers[watcher_key] then
@@ -299,6 +310,13 @@ function M.watch_submission(handle, contest_id, problem_index)
         end
 
         local sub = data.result[1]
+
+        -- If top submission was created before this watch started, new submission is still in flight
+        if sub.creationTimeSeconds and sub.creationTimeSeconds < (watch_start_ts - 5) then
+          vim.defer_fn(poll, poll_interval_ms)
+          return
+        end
+
         local p_idx = (sub.problem and sub.problem.index) or ""
         local p_name = (sub.problem and sub.problem.name) or "Problem"
         local passed = sub.passedTestCount or 0
@@ -351,8 +369,8 @@ function M.watch_submission(handle, contest_id, problem_index)
     end)
   end
 
-  -- Start first poll after 1.2s (allows CF compiler to queue and build)
-  vim.defer_fn(poll, 1200)
+  -- Start first poll after 400ms for near-instant first testcase visibility
+  vim.defer_fn(poll, 400)
 end
 
 -- ==============================================================================
