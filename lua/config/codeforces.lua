@@ -34,6 +34,57 @@ local function get_next_rankup(rating)
   return nil, nil
 end
 
+-- Format contest start date (YYYY-MM-DD) and relative age (e.g. "2y 5m 12d old contest")
+local function format_contest_date_and_age(start_ts)
+  if not start_ts or type(start_ts) ~= "number" or start_ts <= 0 then
+    return nil, nil
+  end
+  local ok, date_str = pcall(os.date, "%Y-%m-%d", start_ts)
+  if not ok or not date_str then
+    return nil, nil
+  end
+
+  local now_ts = os.time()
+  if now_ts < start_ts then
+    return date_str, "upcoming"
+  end
+
+  local t1 = os.date("*t", start_ts)
+  local t2 = os.date("*t", now_ts)
+
+  local years = t2.year - t1.year
+  local months = t2.month - t1.month
+  local days = t2.day - t1.day
+
+  if days < 0 then
+    local prev_month = t2.month - 1
+    local prev_year = t2.year
+    if prev_month == 0 then
+      prev_month = 12
+      prev_year = prev_year - 1
+    end
+    local days_in_prev = os.date("*t", os.time({ year = prev_year, month = prev_month + 1, day = 0 })).day
+    days = days + days_in_prev
+    months = months - 1
+  end
+
+  if months < 0 then
+    months = months + 12
+    years = years - 1
+  end
+
+  local parts = {}
+  if years > 0 then table.insert(parts, years .. "y") end
+  if months > 0 then table.insert(parts, months .. "m") end
+  if days > 0 then table.insert(parts, days .. "d") end
+
+  if #parts == 0 then
+    return date_str, "today"
+  end
+
+  return date_str, table.concat(parts, " ") .. " old contest"
+end
+
 -- Elo win probability formula used by Codeforces / Carrot / Repovive
 local function elo_prob(ra, rb)
   return 1.0 / (1.0 + 10.0 ^ ((rb - ra) / 400.0))
@@ -259,6 +310,7 @@ function M.watch_submission(handle, contest_id, problem_index)
   local min_request_gap_ms = 1000 -- Hard floor: strictly enforce >= 1000ms between requests on the wire
   local last_req_time = 0
   local watch_start_ts = os.time()
+  local watch_start_ms = vim.uv.now()
   local ua = (vim.fn.has("mac") == 1 or vim.fn.has("macunix") == 1)
       and "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0"
     or "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0"
@@ -283,8 +335,13 @@ function M.watch_submission(handle, contest_id, problem_index)
     end
 
     last_req_time = vim.uv.now()
+    local req_send_time = vim.uv.now()
     local api_url = string.format("https://codeforces.com/api/user.status?handle=%s&from=1&count=5", handle)
     vim.system({ "curl", "-s", "-A", ua, api_url }, { text = true }, function(obj)
+      local req_elapsed_ms = vim.uv.now() - req_send_time
+      local resp_sec_str = string.format("%.1fs", req_elapsed_ms / 1000)
+      local total_sec_str = string.format("%.1fs", (vim.uv.now() - watch_start_ms) / 1000)
+
       if not active_watchers[watcher_key] then
         return
       end
@@ -329,9 +386,9 @@ function M.watch_submission(handle, contest_id, problem_index)
             last_passed = passed
             -- Intermediate testcase updates stay in Neovim notify ONLY (no OS notification spam)
             if passed > 0 then
-              vim.notify(string.format("⏳ [%s] Testcase %d passed... (Running on test %d)", p_idx, passed, passed + 1), vim.log.levels.INFO, { title = "Codeforces Watch" })
+              vim.notify(string.format("⏳ [%s] Testcase %d passed... (Running on test %d) [took %s to get response]", p_idx, passed, passed + 1, resp_sec_str), vim.log.levels.INFO, { title = "Codeforces Watch" })
             else
-              vim.notify(string.format("⏳ [%s] Running on test 1...", p_idx), vim.log.levels.INFO, { title = "Codeforces Watch" })
+              vim.notify(string.format("⏳ [%s] Running on test 1... [took %s to get response]", p_idx, resp_sec_str), vim.log.levels.INFO, { title = "Codeforces Watch" })
             end
           end
           vim.defer_fn(poll, poll_interval_ms)
@@ -340,29 +397,29 @@ function M.watch_submission(handle, contest_id, problem_index)
           active_watchers[watcher_key] = nil
 
           if verdict == "OK" then
-            local msg = string.format("🎉 [%s] %s: ACCEPTED!\nPassed %d testcases\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed, time_ms, mem_kb)
+            local msg = string.format("🎉 [%s] %s: ACCEPTED!\nPassed %d testcases (took %s, response in %s)\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed, total_sec_str, resp_sec_str, time_ms, mem_kb)
             vim.notify(msg, vim.log.levels.INFO, { title = "Codeforces Verdict" })
-            send_desktop_notification("Codeforces: ACCEPTED! 🎉", string.format("[%s] %s: Passed %d testcases (%d ms)", p_idx, p_name, passed, time_ms), "normal")
+            send_desktop_notification("Codeforces: ACCEPTED! 🎉", string.format("[%s] %s: Passed %d testcases in %s (%d ms)", p_idx, p_name, passed, total_sec_str, time_ms), "normal")
           elseif verdict == "WRONG_ANSWER" then
-            local msg = string.format("❌ [%s] %s: WRONG ANSWER on test %d\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed + 1, time_ms, mem_kb)
+            local msg = string.format("❌ [%s] %s: WRONG ANSWER on test %d (took %s, response in %s)\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed + 1, total_sec_str, resp_sec_str, time_ms, mem_kb)
             vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
-            send_desktop_notification("Codeforces: WRONG ANSWER ❌", string.format("[%s] %s on test %d (%d ms)", p_idx, p_name, passed + 1, time_ms), "critical")
+            send_desktop_notification("Codeforces: WRONG ANSWER ❌", string.format("[%s] %s on test %d in %s (%d ms)", p_idx, p_name, passed + 1, total_sec_str, time_ms), "critical")
           elseif verdict == "TIME_LIMIT_EXCEEDED" then
-            local msg = string.format("⌛ [%s] %s: TIME LIMIT EXCEEDED on test %d\nTime: %d ms", p_idx, p_name, passed + 1, time_ms)
+            local msg = string.format("⌛ [%s] %s: TIME LIMIT EXCEEDED on test %d (took %s, response in %s)\nTime: %d ms", p_idx, p_name, passed + 1, total_sec_str, resp_sec_str, time_ms)
             vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
-            send_desktop_notification("Codeforces: TIME LIMIT EXCEEDED ⌛", string.format("[%s] %s on test %d (%d ms)", p_idx, p_name, passed + 1, time_ms), "critical")
+            send_desktop_notification("Codeforces: TIME LIMIT EXCEEDED ⌛", string.format("[%s] %s on test %d in %s (%d ms)", p_idx, p_name, passed + 1, total_sec_str, time_ms), "critical")
           elseif verdict == "MEMORY_LIMIT_EXCEEDED" then
-            local msg = string.format("💥 [%s] %s: MEMORY LIMIT EXCEEDED on test %d\nMemory: %d KB", p_idx, p_name, passed + 1, mem_kb)
+            local msg = string.format("💥 [%s] %s: MEMORY LIMIT EXCEEDED on test %d (took %s, response in %s)\nMemory: %d KB", p_idx, p_name, passed + 1, total_sec_str, resp_sec_str, mem_kb)
             vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
-            send_desktop_notification("Codeforces: MEMORY LIMIT EXCEEDED 💥", string.format("[%s] %s on test %d (%d KB)", p_idx, p_name, passed + 1, mem_kb), "critical")
+            send_desktop_notification("Codeforces: MEMORY LIMIT EXCEEDED 💥", string.format("[%s] %s on test %d in %s (%d KB)", p_idx, p_name, passed + 1, total_sec_str, mem_kb), "critical")
           elseif verdict == "COMPILATION_ERROR" then
-            local msg = string.format("⚠️ [%s] %s: COMPILATION ERROR", p_idx, p_name)
+            local msg = string.format("⚠️ [%s] %s: COMPILATION ERROR (took %s, response in %s)", p_idx, p_name, total_sec_str, resp_sec_str)
             vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
-            send_desktop_notification("Codeforces: COMPILATION ERROR ⚠️", string.format("[%s] %s", p_idx, p_name), "critical")
+            send_desktop_notification("Codeforces: COMPILATION ERROR ⚠️", string.format("[%s] %s in %s", p_idx, p_name, total_sec_str), "critical")
           else
-            local msg = string.format("🚨 [%s] %s: %s on test %d\nTime: %d ms | Memory: %d KB", p_idx, p_name, verdict, passed + 1, time_ms, mem_kb)
+            local msg = string.format("🚨 [%s] %s: %s on test %d (took %s, response in %s)\nTime: %d ms | Memory: %d KB", p_idx, p_name, verdict, passed + 1, total_sec_str, resp_sec_str, time_ms, mem_kb)
             vim.notify(msg, vim.log.levels.WARN, { title = "Codeforces Verdict" })
-            send_desktop_notification("Codeforces: " .. verdict:gsub("_", " "), string.format("[%s] %s on test %d", p_idx, p_name, passed + 1), "normal")
+            send_desktop_notification("Codeforces: " .. verdict:gsub("_", " "), string.format("[%s] %s on test %d in %s", p_idx, p_name, passed + 1, total_sec_str), "normal")
           end
         end
       end)
@@ -376,28 +433,28 @@ end
 -- ==============================================================================
 -- 2. Contest Standings, Live / Carrot Rating Prediction & Problem Difficulty
 -- ==============================================================================
-function M.show_contest_list(contest_id)
+function M.show_contest_list(contest_id, force_refresh)
   contest_id = contest_id or M.detect_contest_id()
 
   if not contest_id then
     vim.ui.input({ prompt = "Enter Codeforces Contest ID: " }, function(input)
       if input and vim.trim(input) ~= "" then
-        M.show_contest_list(vim.trim(input))
+        M.show_contest_list(vim.trim(input), force_refresh)
       end
     end)
     return
   end
 
   local handle = M.get_handle()
-  vim.notify("Fetching contest standings, ratings and difficulty estimates...", vim.log.levels.INFO, { title = "Codeforces" })
+  local cache_dir = vim.fn.stdpath("cache") .. "/codeforces"
+  local cache_file = string.format("%s/contest_%s.json", cache_dir, tostring(contest_id))
 
   local standings_data = nil
   local rating_changes_data = nil
   local user_info_data = nil
   local unofficial_status_data = nil
   local checked_unofficial = false
-
-  local pending = handle and 3 or 2
+  local is_from_cache = false
 
   local function render_popup()
     if not standings_data or standings_data.status ~= "OK" or not standings_data.result then
@@ -539,6 +596,13 @@ function M.show_contest_list(contest_id)
       or (is_testing and " (SYSTEM TESTS RUNNING / RE-RUNNING!)"
       or (is_pending and " (PENDING SYSTEM TESTS)" or ""))
     table.insert(lines, string.format(" 📡 Phase: %s%s", phase, phase_tag))
+
+    local date_str, age_str = format_contest_date_and_age(contest.startTimeSeconds)
+    if date_str and age_str then
+      local date_line = string.format(" 📅 Date: %s (%s)", date_str, age_str)
+      table.insert(lines, date_line)
+      table.insert(highlights, { line = #lines - 1, col_start = 1, col_end = #date_line, hl = "CfDiffGray" })
+    end
 
     if handle then
       local profile_str = string.format(" 👤 Handle: %s | Rating: %d (%s) | Max: %d", handle, u_rating, u_rank_title, u_max_rating)
@@ -708,8 +772,8 @@ function M.show_contest_list(contest_id)
       end
     end
 
-    -- 6. What-If Solve Projections (New rank & predicted delta at end - active contests only)
-    if #unsolved > 0 and handle and phase:upper() ~= "FINISHED" then
+    -- 6. What-If Solve Projections (New rank & predicted delta at end)
+    if #unsolved > 0 and handle then
       table.insert(lines, string.rep("─", 80))
       table.insert(lines, " 🎯 What-If Solve Projections:")
 
@@ -849,6 +913,10 @@ function M.show_contest_list(contest_id)
     local row = math.floor((vim.o.lines - height) / 2)
     local col = math.floor((vim.o.columns - width) / 2)
 
+    local title_text = is_from_cache
+      and " Codeforces Contest Standings & Rating Predictor [Cached | 'r' to reload] "
+      or " Codeforces Contest Standings & Rating Predictor "
+
     local win = vim.api.nvim_open_win(buf, true, {
       relative = "editor",
       width = width,
@@ -857,7 +925,7 @@ function M.show_contest_list(contest_id)
       col = col,
       style = "minimal",
       border = "rounded",
-      title = " Codeforces Contest Standings & Rating Predictor ",
+      title = title_text,
       title_pos = "center",
     })
 
@@ -872,7 +940,7 @@ function M.show_contest_list(contest_id)
     vim.keymap.set("n", "<Esc>", close_win, { buffer = buf, nowait = true })
     vim.keymap.set("n", "r", function()
       close_win()
-      M.show_contest_list(contest_id)
+      M.show_contest_list(contest_id, true)
     end, { buffer = buf, nowait = true })
     vim.keymap.set("n", "s", function()
       close_win()
@@ -880,7 +948,7 @@ function M.show_contest_list(contest_id)
         if new_h and vim.trim(new_h) ~= "" then
           vim.g.codeforces_handle = vim.trim(new_h)
           pcall(vim.fn.writefile, { vim.g.codeforces_handle }, handle_file)
-          M.show_contest_list(contest_id)
+          M.show_contest_list(contest_id, false)
         end
       end)
     end, { buffer = buf, nowait = true })
@@ -901,14 +969,88 @@ function M.show_contest_list(contest_id)
 
     vim.keymap.set("n", "<CR>", open_current_problem, { buffer = buf, nowait = true })
     vim.keymap.set("n", "o", open_current_problem, { buffer = buf, nowait = true })
-  end
 
-  local function step_done()
-    pending = pending - 1
-    if pending == 0 then
-      vim.schedule(render_popup)
+    -- Save to persistent disk cache if contest is finished / not running
+    if is_finished then
+      pcall(function()
+        vim.fn.mkdir(cache_dir, "p")
+        local existing = {}
+        if vim.fn.filereadable(cache_file) == 1 then
+          local ok_r, raw = pcall(vim.fn.readfile, cache_file)
+          if ok_r and raw and #raw > 0 then
+            local ok_d, parsed = pcall(vim.json.decode, table.concat(raw, "\n"))
+            if ok_d and parsed then existing = parsed end
+          end
+        end
+
+        local user_cache = existing.user_cache or {}
+        if handle and (user_info_data or unofficial_status_data) then
+          local h_lower = handle:lower()
+          user_cache[h_lower] = {
+            info = user_info_data or (user_cache[h_lower] and user_cache[h_lower].info),
+            unofficial = unofficial_status_data or (user_cache[h_lower] and user_cache[h_lower].unofficial),
+          }
+        end
+
+        local payload = {
+          contest_id = contest_id,
+          cached_at = os.time(),
+          standings = standings_data,
+          rating_changes = (rating_changes_data and rating_changes_data.status == "OK" and rating_changes_data.result and #rating_changes_data.result > 0)
+            and rating_changes_data
+            or existing.rating_changes,
+          user_cache = user_cache,
+        }
+        vim.fn.writefile({ vim.json.encode(payload) }, cache_file)
+      end)
     end
   end
+
+  -- 1. Persistent cache check (near-instant if finished or not running)
+  if not force_refresh and vim.fn.filereadable(cache_file) == 1 then
+    local ok_read, raw_lines = pcall(vim.fn.readfile, cache_file)
+    if ok_read and raw_lines and #raw_lines > 0 then
+      local ok_dec, cached = pcall(vim.json.decode, table.concat(raw_lines, "\n"))
+      if ok_dec and cached and cached.standings and cached.standings.result then
+        local c = cached.standings.result.contest or {}
+        local c_phase = c.phase or "FINISHED"
+        local c_finished = (c_phase == "FINISHED") or (c_phase ~= "CODING" and c_phase ~= "SYSTEM_TEST" and c_phase ~= "PENDING_SYSTEM_TEST")
+        if c_finished then
+          standings_data = cached.standings
+          rating_changes_data = cached.rating_changes
+          is_from_cache = true
+
+          local h_lower = handle and handle:lower() or nil
+          if h_lower and cached.user_cache and cached.user_cache[h_lower] then
+            user_info_data = cached.user_cache[h_lower].info
+            unofficial_status_data = cached.user_cache[h_lower].unofficial
+            checked_unofficial = true
+            vim.schedule(render_popup)
+            return
+          elseif not handle then
+            vim.schedule(render_popup)
+            return
+          else
+            -- We have cached standings and rating changes; only fetch user info
+            local user_url = string.format("https://codeforces.com/api/user.info?handles=%s", handle)
+            vim.system({ "curl", "-s", user_url }, { text = true }, function(obj)
+              if obj.code == 0 and obj.stdout and obj.stdout ~= "" then
+                pcall(function()
+                  user_info_data = vim.json.decode(obj.stdout)
+                end)
+              end
+              vim.schedule(render_popup)
+            end)
+            return
+          end
+        end
+      end
+    end
+  end
+
+  vim.notify("Fetching contest standings, ratings and difficulty estimates...", vim.log.levels.INFO, { title = "Codeforces" })
+
+  local pending = handle and 3 or 2
 
   -- Parallel API Fetch 1: contest.standings
   local standings_url = string.format("https://codeforces.com/api/contest.standings?contestId=%s", contest_id)

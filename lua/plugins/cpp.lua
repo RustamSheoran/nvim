@@ -75,6 +75,32 @@ return {
             "--function-arg-placeholders",
             "-j=4",
           },
+          handlers = {
+            ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+              if result and result.diagnostics then
+                local cp_dir = vim.fn.expand("~/cp")
+                local cwd = vim.fn.getcwd()
+                local in_cp = (cwd:find(cp_dir, 1, true) ~= nil)
+                  or (result.uri and result.uri:find(cp_dir, 1, true) ~= nil)
+                if in_cp then
+                  local filtered = {}
+                  for _, diag in ipairs(result.diagnostics) do
+                    local msg = diag.message and diag.message:lower() or ""
+                    local is_unused_header = (diag.code == "unused-includes")
+                      or (msg:find("not used directly", 1, true) ~= nil)
+                      or (msg:find("unused include", 1, true) ~= nil)
+                      or (msg:find("is not used", 1, true) ~= nil)
+                    if not is_unused_header then
+                      table.insert(filtered, diag)
+                    end
+                  end
+                  result.diagnostics = filtered
+                end
+              end
+              local handler = vim.lsp.handlers["textDocument/publishDiagnostics"] or vim.lsp.diagnostic.on_publish_diagnostics
+              handler(err, result, ctx, config)
+            end,
+          },
         },
       },
     },
