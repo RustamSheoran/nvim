@@ -650,7 +650,7 @@ function M.submit(url, filepath)
                   pcall(function()
                     require("config.codeforces").watch_submission(nil, nil, nil)
                   end)
-                end, 800)
+                end, 100)
               end
             else
               -- AtCoder, CodeChef, LeetCode, and other platforms:

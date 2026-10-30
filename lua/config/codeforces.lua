@@ -78,11 +78,50 @@ local function format_contest_date_and_age(start_ts)
   if months > 0 then table.insert(parts, months .. "m") end
   if days > 0 then table.insert(parts, days .. "d") end
 
+  local ok_m, month_year = pcall(os.date, "%B %Y", start_ts)
+  if not ok_m then month_year = nil end
+
   if #parts == 0 then
-    return date_str, "today"
+    return date_str, "today", month_year
   end
 
-  return date_str, table.concat(parts, " ") .. " old contest"
+  return date_str, table.concat(parts, " ") .. " ago", month_year
+end
+
+-- Clean extraneous subtitles (e.g. "based on ...", ", by ...") and simplify division names
+local function clean_contest_name(raw_name)
+  if not raw_name or raw_name == "" then
+    return "Codeforces Round"
+  end
+  local s = raw_name
+
+  -- Replace any em/en dashes with regular hyphen to strictly avoid unicode dashes
+  s = s:gsub("\226\128\148", "-"):gsub("\226\128\147", "-")
+
+  -- Strip "based on ..." and "by ..." clauses (e.g. ", based on Moscow Open Olympiad in Informatics")
+  s = s:gsub("[,;]%s*[bB]ased%s+on%s+[^,%)]*", "")
+  s = s:gsub("%s*%([bB]ased%s+on%s+[^,%)]*%)", "")
+  s = s:gsub("%s+[bB]ased%s+on%s+.*$", "")
+  s = s:gsub("[,;]%s*[bB]y%s+[^,%)]*", "")
+
+  -- Simplify Educational Codeforces Round -> Edu Round
+  s = s:gsub("Educational%s+Codeforces%s+Round", "Edu Round")
+  s = s:gsub("Educational%s+Round", "Edu Round")
+
+  -- Simplify division representations
+  s = s:gsub("Div%.%s*1%s*%+%s*Div%.%s*2", "Div. 1 + 2")
+  s = s:gsub("Div%.%s*1%s*%+%s*2", "Div. 1 + 2")
+  s = s:gsub("Rated%s+for%s+Div%.%s*2", "Div. 2")
+  s = s:gsub("Rated%s+for%s+Div%.%s*1", "Div. 1")
+  s = s:gsub("Rated%s+for%s+Div%.%s*3", "Div. 3")
+  s = s:gsub("Rated%s+for%s+Div%.%s*4", "Div. 4")
+
+  -- Clean up empty parens and comma spaces
+  s = s:gsub("%(%s*,%s*", "(")
+  s = s:gsub(",%s*%)", ")")
+  s = s:gsub("%(%s*%)", "")
+  s = s:gsub("%s+", " ")
+  return vim.trim(s)
 end
 
 -- Elo win probability formula used by Codeforces / Carrot / Repovive
@@ -339,15 +378,20 @@ function M.watch_submission(handle, contest_id, problem_index)
     local api_url = string.format("https://codeforces.com/api/user.status?handle=%s&from=1&count=5", handle)
     vim.system({ "curl", "-s", "-A", ua, api_url }, { text = true }, function(obj)
       local req_elapsed_ms = vim.uv.now() - req_send_time
-      local resp_sec_str = string.format("%.1fs", req_elapsed_ms / 1000)
       local total_sec_str = string.format("%.1fs", (vim.uv.now() - watch_start_ms) / 1000)
 
       if not active_watchers[watcher_key] then
         return
       end
 
+      local function schedule_next_poll(delay)
+        if not active_watchers[watcher_key] then return end
+        local gap = delay or math.max(50, min_request_gap_ms - (vim.uv.now() - last_req_time))
+        vim.defer_fn(poll, gap)
+      end
+
       if obj.code ~= 0 or not obj.stdout or obj.stdout == "" then
-        vim.defer_fn(poll, poll_interval_ms)
+        schedule_next_poll()
         return
       end
 
@@ -361,8 +405,8 @@ function M.watch_submission(handle, contest_id, problem_index)
           -- If Codeforces throttles with "Call limit exceeded", back off 3.5s to replenish token bucket
           local is_rate_limited = (data and data.comment and data.comment:lower():find("limit exceeded"))
             or (obj.stdout and obj.stdout:lower():find("limit exceeded"))
-          local delay = is_rate_limited and 3500 or poll_interval_ms
-          vim.defer_fn(poll, delay)
+          local delay = is_rate_limited and 3500 or nil
+          schedule_next_poll(delay)
           return
         end
 
@@ -370,7 +414,7 @@ function M.watch_submission(handle, contest_id, problem_index)
 
         -- If top submission was created before this watch started, new submission is still in flight
         if sub.creationTimeSeconds and sub.creationTimeSeconds < (watch_start_ts - 5) then
-          vim.defer_fn(poll, poll_interval_ms)
+          schedule_next_poll()
           return
         end
 
@@ -380,45 +424,54 @@ function M.watch_submission(handle, contest_id, problem_index)
         local verdict = sub.verdict
         local time_ms = sub.timeConsumedMillis or 0
         local mem_kb = math.floor((sub.memoryConsumedBytes or 0) / 1024)
+        local notif_id = "cf_watch_" .. watcher_key
 
         if verdict == nil or verdict == "TESTING" or verdict == "SUBMITTED" then
           if passed > last_passed then
             last_passed = passed
-            -- Intermediate testcase updates stay in Neovim notify ONLY (no OS notification spam)
+            -- Intermediate testcase updates update in-place via notif_id for zero UI lag
             if passed > 0 then
-              vim.notify(string.format("⏳ [%s] Testcase %d passed... (Running on test %d) [took %s to get response]", p_idx, passed, passed + 1, resp_sec_str), vim.log.levels.INFO, { title = "Codeforces Watch" })
+              vim.notify(
+                string.format("⏳ [%s] Testcase %d passed... (Running on test %d) [%s elapsed]", p_idx, passed, passed + 1, total_sec_str),
+                vim.log.levels.INFO,
+                { title = "Codeforces Watch", id = notif_id, timeout = 3000 }
+              )
             else
-              vim.notify(string.format("⏳ [%s] Running on test 1... [took %s to get response]", p_idx, resp_sec_str), vim.log.levels.INFO, { title = "Codeforces Watch" })
+              vim.notify(
+                string.format("⏳ [%s] Running on test 1... [%s elapsed]", p_idx, total_sec_str),
+                vim.log.levels.INFO,
+                { title = "Codeforces Watch", id = notif_id, timeout = 3000 }
+              )
             end
           end
-          vim.defer_fn(poll, poll_interval_ms)
+          schedule_next_poll()
         else
           -- Finished judging! Trigger desktop OS notification for final verdict only
           active_watchers[watcher_key] = nil
 
           if verdict == "OK" then
-            local msg = string.format("🎉 [%s] %s: ACCEPTED!\nPassed %d testcases (took %s, response in %s)\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed, total_sec_str, resp_sec_str, time_ms, mem_kb)
-            vim.notify(msg, vim.log.levels.INFO, { title = "Codeforces Verdict" })
+            local msg = string.format("🎉 [%s] %s: ACCEPTED!\nPassed %d testcases in %s\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed, total_sec_str, time_ms, mem_kb)
+            vim.notify(msg, vim.log.levels.INFO, { title = "Codeforces Verdict", id = notif_id })
             send_desktop_notification("Codeforces: ACCEPTED! 🎉", string.format("[%s] %s: Passed %d testcases in %s (%d ms)", p_idx, p_name, passed, total_sec_str, time_ms), "normal")
           elseif verdict == "WRONG_ANSWER" then
-            local msg = string.format("❌ [%s] %s: WRONG ANSWER on test %d (took %s, response in %s)\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed + 1, total_sec_str, resp_sec_str, time_ms, mem_kb)
-            vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
+            local msg = string.format("❌ [%s] %s: WRONG ANSWER on test %d (after %s)\nTime: %d ms | Memory: %d KB", p_idx, p_name, passed + 1, total_sec_str, time_ms, mem_kb)
+            vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict", id = notif_id })
             send_desktop_notification("Codeforces: WRONG ANSWER ❌", string.format("[%s] %s on test %d in %s (%d ms)", p_idx, p_name, passed + 1, total_sec_str, time_ms), "critical")
           elseif verdict == "TIME_LIMIT_EXCEEDED" then
-            local msg = string.format("⌛ [%s] %s: TIME LIMIT EXCEEDED on test %d (took %s, response in %s)\nTime: %d ms", p_idx, p_name, passed + 1, total_sec_str, resp_sec_str, time_ms)
-            vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
+            local msg = string.format("⌛ [%s] %s: TIME LIMIT EXCEEDED on test %d (after %s)\nTime: %d ms", p_idx, p_name, passed + 1, total_sec_str, time_ms)
+            vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict", id = notif_id })
             send_desktop_notification("Codeforces: TIME LIMIT EXCEEDED ⌛", string.format("[%s] %s on test %d in %s (%d ms)", p_idx, p_name, passed + 1, total_sec_str, time_ms), "critical")
           elseif verdict == "MEMORY_LIMIT_EXCEEDED" then
-            local msg = string.format("💥 [%s] %s: MEMORY LIMIT EXCEEDED on test %d (took %s, response in %s)\nMemory: %d KB", p_idx, p_name, passed + 1, total_sec_str, resp_sec_str, mem_kb)
-            vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
+            local msg = string.format("💥 [%s] %s: MEMORY LIMIT EXCEEDED on test %d (after %s)\nMemory: %d KB", p_idx, p_name, passed + 1, total_sec_str, mem_kb)
+            vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict", id = notif_id })
             send_desktop_notification("Codeforces: MEMORY LIMIT EXCEEDED 💥", string.format("[%s] %s on test %d in %s (%d KB)", p_idx, p_name, passed + 1, total_sec_str, mem_kb), "critical")
           elseif verdict == "COMPILATION_ERROR" then
-            local msg = string.format("⚠️ [%s] %s: COMPILATION ERROR (took %s, response in %s)", p_idx, p_name, total_sec_str, resp_sec_str)
-            vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict" })
+            local msg = string.format("⚠️ [%s] %s: COMPILATION ERROR (after %s)", p_idx, p_name, total_sec_str)
+            vim.notify(msg, vim.log.levels.ERROR, { title = "Codeforces Verdict", id = notif_id })
             send_desktop_notification("Codeforces: COMPILATION ERROR ⚠️", string.format("[%s] %s in %s", p_idx, p_name, total_sec_str), "critical")
           else
-            local msg = string.format("🚨 [%s] %s: %s on test %d (took %s, response in %s)\nTime: %d ms | Memory: %d KB", p_idx, p_name, verdict, passed + 1, total_sec_str, resp_sec_str, time_ms, mem_kb)
-            vim.notify(msg, vim.log.levels.WARN, { title = "Codeforces Verdict" })
+            local msg = string.format("🚨 [%s] %s: %s on test %d (after %s)\nTime: %d ms | Memory: %d KB", p_idx, p_name, verdict, passed + 1, total_sec_str, time_ms, mem_kb)
+            vim.notify(msg, vim.log.levels.WARN, { title = "Codeforces Verdict", id = notif_id })
             send_desktop_notification("Codeforces: " .. verdict:gsub("_", " "), string.format("[%s] %s on test %d in %s", p_idx, p_name, passed + 1, total_sec_str), "normal")
           end
         end
@@ -426,8 +479,8 @@ function M.watch_submission(handle, contest_id, problem_index)
     end)
   end
 
-  -- Start first poll after 400ms for near-instant first testcase visibility
-  vim.defer_fn(poll, 400)
+  -- Start first poll quickly for near-instant first testcase visibility
+  vim.defer_fn(poll, 50)
 end
 
 -- ==============================================================================
@@ -585,25 +638,36 @@ function M.show_contest_list(contest_id, force_refresh)
     local lines = {}
     local highlights = {} -- list of { line = idx, col_start = s, col_end = e, hl = group }
 
-    local c_name = contest.name or ("Contest " .. contest_id)
+    local c_name = clean_contest_name(contest.name or ("Contest " .. contest_id))
     local phase = contest.phase or "FINISHED"
     local is_live = (phase == "CODING")
     local is_testing = (phase == "SYSTEM_TEST")
     local is_pending = (phase == "PENDING_SYSTEM_TEST")
     local is_finished = (phase == "FINISHED") or (phase ~= "CODING" and phase ~= "SYSTEM_TEST" and phase ~= "PENDING_SYSTEM_TEST")
 
-    table.insert(lines, string.format(" 🏆 %s", c_name))
+    local date_str, age_str, month_year = format_contest_date_and_age(contest.startTimeSeconds)
+    local title_suffix = ""
+    if is_finished and age_str then
+      if age_str == "today" then
+        title_suffix = " (Today)"
+      elseif month_year then
+        title_suffix = string.format(" (%s, %s)", month_year, age_str)
+      else
+        title_suffix = string.format(" (%s)", age_str)
+      end
+    end
+
+    local title_line = string.format(" 🏆 %s%s", c_name, title_suffix)
+    table.insert(lines, title_line)
+    if title_suffix ~= "" then
+      local s_col = #title_line - #title_suffix
+      table.insert(highlights, { line = #lines - 1, col_start = s_col, col_end = #title_line, hl = "CfDiffGray" })
+    end
+
     local phase_tag = is_live and " (LIVE CONTEST RUNNING!)"
       or (is_testing and " (SYSTEM TESTS RUNNING / RE-RUNNING!)"
       or (is_pending and " (PENDING SYSTEM TESTS)" or ""))
     table.insert(lines, string.format(" 📡 Phase: %s%s", phase, phase_tag))
-
-    local date_str, age_str = format_contest_date_and_age(contest.startTimeSeconds)
-    if date_str and age_str then
-      local date_line = string.format(" 📅 Date: %s (%s)", date_str, age_str)
-      table.insert(lines, date_line)
-      table.insert(highlights, { line = #lines - 1, col_start = 1, col_end = #date_line, hl = "CfDiffGray" })
-    end
 
     if handle then
       local profile_str = string.format(" 👤 Handle: %s | Rating: %d (%s) | Max: %d", handle, u_rating, u_rank_title, u_max_rating)
@@ -773,8 +837,9 @@ function M.show_contest_list(contest_id, force_refresh)
       end
     end
 
-    -- 6. What-If Solve Projections (New rank & predicted delta at end)
-    if #unsolved > 0 and handle then
+    -- 6. What-If Solve Projections (New rank & predicted delta at end, only during active contest)
+    local is_active = not is_finished
+    if #unsolved > 0 and handle and is_active then
       table.insert(lines, string.rep("─", 80))
       table.insert(lines, " 🎯 What-If Solve Projections:")
 
@@ -1201,7 +1266,7 @@ function M.show_contest_timer(contest_id)
 
         local lines = {}
         table.insert(lines, "")
-        local name_line = string.format("  🏆 %s", target_contest.name or "Codeforces Round")
+        local name_line = string.format("  🏆 %s", clean_contest_name(target_contest.name or "Codeforces Round"))
         if #name_line > width - 2 then
           name_line = name_line:sub(1, width - 5) .. "..."
         end

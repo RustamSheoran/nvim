@@ -498,8 +498,8 @@ Online judges enforce strict API consumption rules to protect their backend serv
    - **Tier 2 (Cloudflare WAF IP Ban):** If an aggressive script ignores the `Call limit exceeded` error and keeps spamming requests without backing off, Cloudflare's Web Application Firewall (WAF) classifies the traffic as a denial-of-service attack. Cloudflare then issues a full HTTP 403 Forbidden captcha block. This Tier 2 ban locks your IP address out of the Codeforces API for **10 to 30 minutes**.
 
 3. **Why Our Watcher Guarantees Zero Rate Limits or Bans:**
-   - **Fast 700ms Polling with 1000ms Wire Floor:** Initial status check fires in just 400ms for near-instant first testcase feedback. Subsequent polls wait 700ms after response, with a hard floor of >= 1000ms on the wire to prevent API rate limits.
-   - **Response Latency & Judging Time Feedback:** Every testcase poll and final verdict displays the exact response time and total time taken, e.g. `⏳ [A] Running on test 1... [took 0.3s to get response]` and `🎉 ACCEPTED! (took 4.6s, response in 0.3s)`.
+   - **Optimized 1000ms Rate-Limit Polling with In-Place Updates:** Initial status check fires in just 50ms for near-instant first testcase feedback. Subsequent polls query as soon as the 1000ms rate-limit window opens, preventing API throttles while updating progress notifications in-place with zero UI delay.
+   - **Accurate Elapsed Judging Time Feedback:** Every intermediate testcase notification updates the elapsed judging time in real time (e.g. `⏳ [A] Testcase 4 passed... (Running on test 5) [2.1s elapsed]`) and the final verdict displays the total judging duration (e.g. `🎉 ACCEPTED! Passed 15 testcases in 4.2s`).
    - **3.5s Adaptive Backoff:** If a `Call limit exceeded` response is ever received (for example, if another browser tab, extension, or tool is concurrently accessing the API), the watcher detects it immediately and backs off for **3.5 seconds**. This gives the bucket enough time to regenerate 3 to 4 tokens, fully clearing the Tier 1 throttle before any new request is dispatched and completely preventing Tier 2 Cloudflare WAF bans.
    - **Browser User-Agent Header:** Every query sends a realistic browser User-Agent header, preventing Cloudflare from flagging your requests as unauthenticated bot scrapers.
    - **Zero Contest Anxiety:** You never need to manually refresh standings or submit pages during a round. The watcher operates quietly in the background and delivers an instant OS notification the second your final verdict arrives.
@@ -507,9 +507,10 @@ Online judges enforce strict API consumption rules to protect their backend serv
 ### 11. Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`)
 Press `<leader>rl` while working on any contest problem to open the live Codeforces Contest HUD.
 
+- **Clean Contest Titles & Division Normalization:** Automatically simplifies contest names, stripping extraneous subtitles like `, based on Moscow Open Olympiad in Informatics` and standardizing divisions into clean formats (`Div. 1`, `Div. 2`, `Div. 1 + 2`, `Edu Round ... (Div. 2)`).
 - **Contest Auto-Detection:** Automatically extracts the contest ID from the problem `.url` companion file. If invoked in an independent buffer, prompts for the contest ID.
 - **Configurable Handle:** Remembers your Codeforces handle in `codeforces_handle.txt`. Prompts on first use. Press `s` inside the HUD to change your handle at any time.
-- **Contest Date & Relative Age:** Displays when the contest took place along with its calendar age from today (e.g. `📅 Date: 2024-06-11 (2y 4m 19d old contest)` or `(today)`).
+- **Inline Contest Month, Year & Relative Age:** For completed rounds, displays the month, year, and exact calendar age directly on the title line (e.g. `🏆 Codeforces Round 775 (Div. 2) (March 2022, 4y 7m 24d ago)` or `(Today)`), keeping the dashboard minimal and eliminating redundant date lines.
 - **Persistent Disk Caching:** Once contest standings and ratings are fetched for a completed round, they are stored on disk in `~/.cache/nvim/codeforces/contest_<id>.json`. Future opens of finished or past contests load near-instantly in 2 to 5 ms (`[Cached | 'r' to reload]`). Press `r` inside the HUD anytime to force a fresh re-fetch from the Codeforces API.
 - **Contest Overview & Status:**
   - Displays contest title and active phase (`CODING`, `PENDING_SYSTEM_TEST`, `SYSTEM_TEST`, `FINISHED`).
@@ -526,10 +527,11 @@ Press `<leader>rl` while working on any contest problem to open the live Codefor
 - **Unofficial Solves Handling:**
   - Standard standings query retrieves official participants.
   - Unofficial submission fetching (`user.status`) is only executed when you are out of the contest or solving unofficially.
-- **What-If Solve Predictions:**
+- **What-If Solve Predictions (Active Contests Only):**
+  - Shown exclusively during active contest rounds (`CODING`, `SYSTEM_TEST`, `PENDING_SYSTEM_TEST`) and automatically hidden for finished contests.
   - Evaluates remaining unsolved problems and computes your projected rank and rating gain if you solve that problem next:
     **• Solve [D] [1850] (+1000 pts) -> New Rank: #331 +89**
-  - Also computes double-solve combination projections for multi-problem jumps (e.g. **• Solve [D + E] (+2500 pts) -> New Rank: #142 +148**).
+  - Displays rankup badges if solving an additional problem will promote you (e.g. `[CM Rankup!]`).
 - **Interactive Controls inside the HUD:**
   - `<CR>` or `o`: Instantly opens the selected problem statement in your web browser.
   - `r`: Refresh contest standings and rating predictions immediately (bypasses cache).
@@ -541,9 +543,8 @@ Pressing `<leader>rl` opens a floating real-time dashboard:
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Codeforces Round 1010 (Div. 2)                                         │
+│ Codeforces Round 1010 (Div. 2) (Today)                                 │
 │ 📡 Phase: CODING (LIVE CONTEST RUNNING!)                               │
-│ 📅 Date: 2026-10-30 (today)                                            │
 │ 📊 Standing: Rank #1591 (#1290) | Points: 2244 | Solved: 3/7           │
 │ 📈 Projected Delta: 1861 -> 1885  +24 (+239 needed to CM)              │
 │ ✨ GUARANTEED CANDIDATE MASTER AFTER THIS CONTEST! CONGRATS! ✨        │
