@@ -522,9 +522,10 @@ Press `<leader>rl` while working on any contest problem to open the live Codefor
 - **Unofficial Solves Handling:**
   - Standard standings query retrieves official participants.
   - Unofficial submission fetching (`user.status`) is only executed when you are out of the contest or solving unofficially.
-- **What-If Solve Predictions:**
-  - Evaluates remaining unsolved problems and computes your projected rank and rating gain if you solve that problem next:
+- **What-If Solve Predictions (Active Contests Only):**
+  - During live rounds (`CODING`, `PENDING_SYSTEM_TEST`, `SYSTEM_TEST`), evaluates remaining unsolved problems and computes your projected rank and rating gain if you solve that problem next:
     **• Solve [D] [1700] (+1000 pts) -> New Rank: #331 +89**
+  - Automatically hidden once a contest is `FINISHED`, keeping past contest standings clean and focused.
 - **Interactive Controls inside the HUD:**
   - `<CR>` or `o`: Instantly opens the selected problem statement in your web browser.
   - `r`: Refresh contest standings and rating predictions immediately.

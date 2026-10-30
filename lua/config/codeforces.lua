@@ -690,8 +690,8 @@ function M.show_contest_list(contest_id)
       end
     end
 
-    -- 6. What-If Solve Projections (New rank & predicted delta at end)
-    if #unsolved > 0 and handle then
+    -- 6. What-If Solve Projections (New rank & predicted delta at end - active contests only)
+    if #unsolved > 0 and handle and phase:upper() ~= "FINISHED" then
       table.insert(lines, string.rep("─", 80))
       table.insert(lines, " 🎯 What-If Solve Projections:")
 
