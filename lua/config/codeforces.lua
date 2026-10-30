@@ -590,6 +590,7 @@ function M.show_contest_list(contest_id, force_refresh)
     local is_live = (phase == "CODING")
     local is_testing = (phase == "SYSTEM_TEST")
     local is_pending = (phase == "PENDING_SYSTEM_TEST")
+    local is_finished = (phase == "FINISHED") or (phase ~= "CODING" and phase ~= "SYSTEM_TEST" and phase ~= "PENDING_SYSTEM_TEST")
 
     table.insert(lines, string.format(" 🏆 %s", c_name))
     local phase_tag = is_live and " (LIVE CONTEST RUNNING!)"
@@ -1051,6 +1052,13 @@ function M.show_contest_list(contest_id, force_refresh)
   vim.notify("Fetching contest standings, ratings and difficulty estimates...", vim.log.levels.INFO, { title = "Codeforces" })
 
   local pending = handle and 3 or 2
+
+  local function step_done()
+    pending = pending - 1
+    if pending == 0 then
+      vim.schedule(render_popup)
+    end
+  end
 
   -- Parallel API Fetch 1: contest.standings
   local standings_url = string.format("https://codeforces.com/api/contest.standings?contestId=%s", contest_id)
