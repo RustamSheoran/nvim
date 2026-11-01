@@ -1,5 +1,6 @@
 return {
   "vyfor/cord.nvim",
+  event = "VeryLazy",
   opts = {
     display = {
       theme = "default", -- 'default', 'atom', 'catppuccin', 'minecraft', 'void', 'classic'
