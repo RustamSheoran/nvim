@@ -17,10 +17,13 @@ function M.execute_with_file(source_file, input_file)
 
   vim.notify(string.format("⚡ Compiling %s and running with input: %s...", src_name, in_name), vim.log.levels.INFO, { title = "Meta Runner" })
 
-  local comp_cmd = {
-    "g++", "-O2", "-std=c++17", "-fuse-ld=mold",
-    source_file, "-o", bin_file,
-  }
+  local comp_cmd = { "g++", "-O2", "-std=c++17" }
+  if vim.fn.executable("mold") == 1 and (vim.uv or vim.loop).os_uname().sysname == "Linux" then
+    table.insert(comp_cmd, "-fuse-ld=mold")
+  end
+  table.insert(comp_cmd, source_file)
+  table.insert(comp_cmd, "-o")
+  table.insert(comp_cmd, bin_file)
 
   vim.system(comp_cmd, { text = true }, function(comp_obj)
     if comp_obj.code ~= 0 then

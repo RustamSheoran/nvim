@@ -111,7 +111,17 @@ return {
       cpp = vim.fn.expand("~/.config/nvim/templates/cp_template.cpp"),
     },
     compile_command = {
-      cpp = { exec = "g++", args = { "-O2", "-std=c++17", "-fuse-ld=mold", "$(FNAME)", "-o", "$(FNOEXT)" } },
+      cpp = {
+        exec = "g++",
+        args = (function()
+          local args = { "-O2", "-std=c++17" }
+          if vim.fn.executable("mold") == 1 and (vim.uv or vim.loop).os_uname().sysname == "Linux" then
+            table.insert(args, "-fuse-ld=mold")
+          end
+          vim.list_extend(args, { "$(FNAME)", "-o", "$(FNOEXT)" })
+          return args
+        end)(),
+      },
     },
     run_command = {
       cpp = { exec = "./$(FNOEXT)" },
