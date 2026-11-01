@@ -277,7 +277,8 @@ function M.start()
               end
               
               -- Save source file if not exists
-              if vim.fn.filereadable(target_path) == 0 then
+              local is_new_file = vim.fn.filereadable(target_path) == 0
+              if is_new_file then
                 local template_path = vim.fn.expand("~/.config/nvim/templates/cp_template.cpp")
                 if vim.fn.filereadable(template_path) == 1 then
                   local template = vim.fn.readfile(template_path)
@@ -287,7 +288,36 @@ function M.start()
                 end
               end
               
-              vim.cmd("edit " .. target_path)
+              -- Pre-mark buffer so LazyVim last_loc does not reset cursor to line 1
+              local target_buf = vim.fn.bufadd(target_path)
+              vim.b[target_buf].lazyvim_last_loc = true
+
+              -- Find a normal window to edit in (avoiding floats or sidebars)
+              local normal_win = nil
+              local cur_win = vim.api.nvim_get_current_win()
+              local cur_buf = vim.api.nvim_win_get_buf(cur_win)
+              if vim.bo[cur_buf].buftype == "" and vim.api.nvim_win_get_config(cur_win).relative == "" then
+                normal_win = cur_win
+              else
+                for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+                  local b = vim.api.nvim_win_get_buf(win)
+                  if vim.bo[b].buftype == "" and vim.api.nvim_win_get_config(win).relative == "" then
+                    normal_win = win
+                    break
+                  end
+                end
+              end
+              if normal_win and vim.api.nvim_win_is_valid(normal_win) then
+                pcall(vim.api.nvim_set_current_win, normal_win)
+              end
+
+              vim.cmd("edit " .. vim.fn.fnameescape(target_path))
+
+              local ok_ac, autocmds = pcall(require, "config.autocmds")
+              if ok_ac and autocmds and type(autocmds.position_at_solve) == "function" then
+                autocmds.position_at_solve(target_buf, 0, is_new_file)
+              end
+
               vim.notify("Received problem: " .. (task.name or "problem"), vim.log.levels.INFO)
             end)
           end
