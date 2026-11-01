@@ -228,6 +228,7 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
     {
       "<leader>rs",
       function()
+        vim.cmd("silent! write")
         local filepath = vim.fn.expand("%:p")
         local url_file = vim.fn.expand("%:p:r") .. ".url"
 

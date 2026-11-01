@@ -120,7 +120,7 @@ vim.api.nvim_create_autocmd({ "BufReadPost", "BufEnter" }, {
 })
 
 -- ==================== Idle Auto-Save (2s debounce) ====================
-local autosave_timer = nil
+local autosave_timer = (vim.uv or vim.loop).new_timer()
 
 vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
   group = vim.api.nvim_create_augroup("AutoSaveIdle", { clear = true }),
@@ -133,21 +133,14 @@ vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
       return
     end
 
-    if autosave_timer then
-      autosave_timer:stop()
-      autosave_timer:close()
-      autosave_timer = nil
+    if not autosave_timer or autosave_timer:is_closing() then
+      autosave_timer = (vim.uv or vim.loop).new_timer()
     end
 
-    autosave_timer = vim.uv.new_timer()
     autosave_timer:start(
       2000,
       0,
       vim.schedule_wrap(function()
-        if autosave_timer then
-          autosave_timer:close()
-          autosave_timer = nil
-        end
         if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].modified and vim.bo[buf].buftype == "" then
           local mode = vim.api.nvim_get_mode().mode
           vim.api.nvim_buf_call(buf, function()

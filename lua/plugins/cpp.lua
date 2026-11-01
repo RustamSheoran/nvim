@@ -22,6 +22,11 @@ return {
 
       opts.sources = opts.sources or {}
       opts.sources.default = function()
+        -- Fast string check for line comments before treesitter parse
+        local line = vim.api.nvim_get_current_line()
+        if line:find("^%s*//") then
+          return {}
+        end
         local success, node = pcall(vim.treesitter.get_node)
         if
           success
