@@ -23,6 +23,7 @@ return {
       opts.sources = opts.sources or {}
       opts.sources.providers = vim.tbl_deep_extend("force", opts.sources.providers or {}, {
         buffer = { min_keyword_length = 2 },
+        snippets = { score_offset = 3 },
       })
       opts.sources.default = function()
         -- Fast string check for line comments before treesitter parse

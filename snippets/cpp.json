@@ -1329,7 +1329,7 @@
     "prefix": "rep",
     "body": [
       "rep(${1:i}, ${2:n}) {",
-      "    $0",
+      "    $3",
       "}"
     ],
     "description": "rep(i, n) loop from 0 to n-1"
@@ -1338,7 +1338,7 @@
     "prefix": "rep1",
     "body": [
       "rep1(${1:i}, ${2:n}) {",
-      "    $0",
+      "    $3",
       "}"
     ],
     "description": "rep1(i, n) loop from 1 to n"
@@ -1347,7 +1347,7 @@
     "prefix": "rrep",
     "body": [
       "rrep(${1:i}, ${2:n}) {",
-      "    $0",
+      "    $3",
       "}"
     ],
     "description": "rrep(i, n) reverse loop from n-1 down to 0"
@@ -1356,7 +1356,7 @@
     "prefix": "forr",
     "body": [
       "forr(${1:i}, ${2:a}, ${3:b}) {",
-      "    $0",
+      "    $4",
       "}"
     ],
     "description": "forr(i, a, b) range loop from a to b inclusive"
@@ -1365,7 +1365,7 @@
     "prefix": "each",
     "body": [
       "each(${1:x}, ${2:a}) {",
-      "    $0",
+      "    $3",
       "}"
     ],
     "description": "each(x, a) loop for each element"
