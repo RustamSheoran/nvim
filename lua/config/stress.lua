@@ -332,13 +332,14 @@ function M.run()
   -- Auto-save all open buffers before testing
   vim.cmd("silent! wa")
 
+  local mold_flag = (vim.fn.executable("mold") == 1 and (vim.uv or vim.loop).os_uname().sysname == "Linux") and "-fuse-ld=mold " or ""
   local stress_cmd = string.format([[
 cd '%s' && bash -c '
-ulimit -s 262144 2>/dev/null
+ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
 echo -e "\033[1;34m=== COMPILING %s, %s, and %s ===\033[0m"
-g++ -O2 -std=c++17 -fuse-ld=mold "%s" -o __sol || exit 1
-g++ -O2 -std=c++17 -fuse-ld=mold "%s" -o __brute || exit 1
-g++ -O2 -std=c++17 -fuse-ld=mold "%s" -o __gen || exit 1
+g++ -O2 -std=c++17 %s"%s" -o __sol || exit 1
+g++ -O2 -std=c++17 %s"%s" -o __brute || exit 1
+g++ -O2 -std=c++17 %s"%s" -o __gen || exit 1
 
 echo -e "\033[1;32m=== STRESS TESTING %s (Press Ctrl+C to stop) ===\033[0m"
 i=1
@@ -371,7 +372,7 @@ while true; do
     ((i++))
 done
 '
-]], paths.dir, paths.sol_name, paths.brute_name, paths.gen_name, paths.sol_name, paths.brute_name, paths.gen_name, paths.sol_name)
+]], paths.dir, paths.sol_name, paths.brute_name, paths.gen_name, mold_flag, paths.sol_name, mold_flag, paths.brute_name, mold_flag, paths.gen_name, paths.sol_name)
 
   if Snacks and Snacks.terminal then
     Snacks.terminal.open(stress_cmd, {

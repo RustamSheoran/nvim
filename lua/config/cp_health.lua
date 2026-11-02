@@ -3,7 +3,48 @@
 -- ==============================================================================
 local M = {}
 
-function M.check(opts)
+-- State storage in ~/.local/state/nvim/cp_health_state.json
+local function get_health_state_file()
+  local state_dir = vim.fn.stdpath("state")
+  pcall(vim.fn.mkdir, state_dir, "p")
+  return state_dir .. "/cp_health_state.json"
+end
+
+local function read_health_state()
+  local file = get_health_state_file()
+  if vim.fn.filereadable(file) == 1 then
+    local content = table.concat(vim.fn.readfile(file), "")
+    local ok, data = pcall(vim.json.decode, content)
+    if ok and type(data) == "table" then
+      return data
+    end
+  end
+  return {}
+end
+
+local function write_health_state(commit_hash)
+  local file = get_health_state_file()
+  local data = {
+    last_check_time = os.time(),
+    last_commit_hash = commit_hash or "",
+  }
+  local encoded = vim.json.encode(data)
+  pcall(vim.fn.writefile, { encoded }, file)
+end
+
+local function get_config_commit_hash(callback)
+  local config_dir = vim.fn.stdpath("config")
+  if vim.fn.isdirectory(config_dir .. "/.git") ~= 1 then
+    callback("")
+    return
+  end
+  vim.system({ "git", "-C", config_dir, "rev-parse", "HEAD" }, { text = true }, function(obj)
+    local hash = (obj.code == 0 and obj.stdout) and vim.trim(obj.stdout) or ""
+    callback(hash)
+  end)
+end
+
+function M.run_diagnostics(opts, cur_hash)
   opts = opts or {}
   if not opts.auto then
     vim.notify("Running pre-contest environment diagnostics...", vim.log.levels.INFO, { title = "CP Health" })
@@ -32,12 +73,21 @@ function M.check(opts)
       end
     end
 
-    -- If automatically run on startup in ~/cp and all checks pass, show a subtle notification
-    if opts.auto and pass_count == #order then
-      vim.notify("⚡ CP Environment: All 8 checks passed (GCC, mold, PCH, stack 256MB, Zen cookies)", vim.log.levels.INFO, { title = "CP Ready" })
+    -- Save state so weekly throttle and git-pull triggers track this run
+    write_health_state(cur_hash)
+
+    -- If automatically run on startup in ~/cp, show a subtle notification and NEVER open a window
+    if opts.auto then
+      if pass_count == #order then
+        local bname = (results.cookie.status == "PASS" and results.cookie.detail:match("%((.-)%s*profile")) or "Browser"
+        vim.notify(string.format("⚡ CP Environment: All 8 checks passed (GCC, mold, PCH, stack 256MB, %s cookies)", bname), vim.log.levels.INFO, { title = "CP Ready" })
+      else
+        vim.notify(string.format("⚠️ CP Health: %d/%d checks passed (%d warnings/failures). Press <leader>rh to view diagnostics.", pass_count, #order, #order - pass_count), vim.log.levels.WARN, { title = "CP Health Alert" })
+      end
       return
     end
 
+    -- Manual run (<leader>rh): open interactive floating diagnostic window
     local buf = vim.api.nvim_create_buf(false, true)
     vim.bo[buf].buftype = "nofile"
     vim.bo[buf].bufhidden = "wipe"
@@ -62,7 +112,7 @@ function M.check(opts)
     local lines = {}
     table.insert(lines, "")
     table.insert(lines, "  Diagnostic Component                Status    Details")
-    table.insert(lines, "  " .. string.rep("─", width - 4))
+    table.insert(lines, "  " .. string.rep("-", width - 4))
 
     for _, key in ipairs(order) do
       local item = results[key]
@@ -80,7 +130,7 @@ function M.check(opts)
       table.insert(lines, formatted)
     end
 
-    table.insert(lines, "  " .. string.rep("─", width - 4))
+    table.insert(lines, "  " .. string.rep("-", width - 4))
     if pass_count == #order then
       table.insert(lines, string.format("  🎉 Score: %d/%d checks passed! Your environment is 100%% contest-ready.", pass_count, #order))
     else
@@ -134,7 +184,7 @@ function M.check(opts)
       if obj.code == 0 and obj.stdout then
         local ver = obj.stdout:match("mold%s*([%d%.]+)") or "Installed"
         results.mold.status = "PASS"
-        results.mold.detail = "v" .. ver .. " (Lightning fast linking)"
+        results.mold.detail = "v" .. ver .. " (Fast linking)"
       else
         results.mold.status = "WARN"
         results.mold.detail = "mold command error"
@@ -161,12 +211,16 @@ function M.check(opts)
   end)
 
   -- Check 4: Stack Limit
-  vim.system({ "bash", "-c", "ulimit -s" }, { text = true }, function(obj)
+  local shell_cmd = vim.fn.executable("sh") == 1 and { "sh", "-c", "ulimit -s" } or { "bash", "-c", "ulimit -s" }
+  vim.system(shell_cmd, { text = true }, function(obj)
     local out = vim.trim(obj.stdout or "")
     local val = tonumber(out)
     if out == "unlimited" or (val and val >= 262144) then
       results.stack.status = "PASS"
       results.stack.detail = (val and string.format("%d KB (Safe for deep DFS)", val)) or "Unlimited"
+    elseif val and val >= 65520 then
+      results.stack.status = "PASS"
+      results.stack.detail = string.format("%d KB (macOS max limit)", val)
     elseif val and val > 16384 then
       results.stack.status = "PASS"
       results.stack.detail = string.format("%d KB", val)
@@ -182,12 +236,12 @@ function M.check(opts)
   if cf_cookie.is_cookie_allowed() then
     local db_path = cf_cookie.find_cookie_database()
     if db_path then
-      local bname = db_path:find("zen") and "Zen Browser" or (db_path:find("firefox") and "Firefox" or "Browser")
+      local bname = cf_cookie.last_detected_browser or (db_path:find("zen") and "Zen Browser" or (db_path:find("firefox") and "Firefox" or "Browser"))
       results.cookie.status = "PASS"
       results.cookie.detail = string.format("Active (%s profile detected)", bname)
     else
       results.cookie.status = "WARN"
-      results.cookie.detail = "No cookies.sqlite found (uses cph-submit)"
+      results.cookie.detail = "No active cookies found (fallback: cph-submit)"
     end
   else
     results.cookie.status = "WARN"
@@ -230,6 +284,46 @@ function M.check(opts)
       results.sanitizer.detail = "Sanitizer library check failed"
     end
     check_done()
+  end)
+end
+
+-- Primary entry point for health check.
+-- When opts.auto is true:
+--   - Does at most 1 check per week, or runs immediately after a git pull
+--   - Displays a clean notification only (never opens a floating window)
+-- When opts.auto is false (manual <leader>rh):
+--   - Bypasses weekly throttle and opens interactive floating diagnostics
+function M.check(opts)
+  opts = opts or {}
+
+  -- If auto-check requested on startup / entry, throttle to once a week or after a git pull
+  if opts.auto and not opts.force then
+    local state = read_health_state()
+    local last_time = tonumber(state.last_check_time) or 0
+    local last_hash = tostring(state.last_commit_hash or "")
+    local one_week = 7 * 24 * 3600
+    local now = os.time()
+
+    get_config_commit_hash(function(cur_hash)
+      local is_after_pull = (cur_hash ~= "" and last_hash ~= "" and cur_hash ~= last_hash)
+      local is_weekly_due = (last_time == 0 or (now - last_time) >= one_week)
+
+      if not is_after_pull and not is_weekly_due then
+        -- Skip check: checked within the last 7 days and no git pull occurred
+        return
+      end
+
+      vim.schedule(function()
+        M.run_diagnostics(opts, cur_hash)
+      end)
+    end)
+    return
+  end
+
+  get_config_commit_hash(function(cur_hash)
+    vim.schedule(function()
+      M.run_diagnostics(opts, cur_hash)
+    end)
   end)
 end
 

@@ -22,7 +22,7 @@ This setup replaces the need for VS Code and heavy background processes with a c
 - **🛡️ 3-Step Pre-Submission Protection (`<leader>rs`):** Running `<leader>rs` automatically comments out all active `dbg(...)` statements (without deleting them), verifies syntax (`-fsyntax-only`), and compiles with Google AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases. If a memory bug or undefined behavior is detected, submission is halted immediately and your cursor jumps straight to the offending red line!
 - **📊 Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`):** Native Lua integration displaying live contest standings, solve counts, Carrot rating change predictions (**+24** in green, **-26** in red), next rankup targets (**+239 needed to CM**), celebratory promotion banners (**✨ GUARANTEED CANDIDATE MASTER AFTER THIS CONTEST! CONGRATS! ✨**), Repovive problem difficulty estimations (**~1100\***), and What-If solve projections right inside Neovim.
 - **👀 Live Submission Verdict Watcher:** Streams real-time Codeforces submission verdicts through every pretest and system test (**In queue** -> **Running on test 14** -> **Accepted**) with zero manual intervention, safe 1.5s sequential polling, 3.5s adaptive backoff, and native OS desktop alerts.
-- **🍪 Zero-Browser Headless Submit (`<leader>rs` / `<leader>rk`):** Non-destructively reads session cookies from Zen Browser or Firefox and submits directly to Codeforces with automatic duplicate code rejection prevention and a global privacy consent toggle.
+- **🍪 Zero-Browser Headless Submit (`<leader>rs` / `<leader>rk`):** Non-destructively reads session cookies from your default browser (Chromium, Chrome, Helium, Firefox, Zen, Brave, Floorp, LibreWolf, Waterfox) and submits directly to Codeforces with automatic duplicate code rejection prevention and a global privacy consent toggle.
 - **🩺 Pre-Contest Environment Health Check (`<leader>rh`):** Automated 8-point diagnostics on GCC, mold, Bits PCH, 256 MB stack limit, cookies, handle, and Google sanitizers, running silently in the background on opening `~/cp`.
 - **🏆 Meta Hacker Cup 1-Click File Runner (`<leader>rm` / `<leader>rf`):** Directory isolation preventing overwritten outputs, 1-click Snacks file picker to choose input from `~/Downloads`, automatic `output.txt` generation, and auto-copying output path to clipboard.
 - **🔍 Dedicated Local Debug Runner (`<leader>rd` / `<leader>rx`):** Compiles with `-DLOCAL -DDEBUG` to run all saved testcases, printing variables via `dbg(...)`, wrapping outputs in `------`, and measuring execution time in milliseconds.
@@ -42,8 +42,9 @@ This setup replaces the need for VS Code and heavy background processes with a c
 If you want an automated, zero-effort installation, clone the repository and run `setup.sh`:
 
 ```bash
-# 1. Clone this repository
-git clone git@github.com:RustamSheoran/nvim.git ~/.config/nvim
+# 1. Clone this repository (HTTPS or SSH)
+git clone https://github.com/RustamSheoran/nvim.git ~/.config/nvim
+# or with SSH: git clone git@github.com:RustamSheoran/nvim.git ~/.config/nvim
 cd ~/.config/nvim
 
 # 2. Run the automated setup script
@@ -169,8 +170,9 @@ Homebrew GCC includes `<bits/stdc++.h>` out of the box.
 # 1. Backup your existing configuration (if any)
 mv ~/.config/nvim ~/.config/nvim.bak
 
-# 2. Clone this repository
-git clone git@github.com:RustamSheoran/nvim.git ~/.config/nvim
+# 2. Clone this repository (HTTPS or SSH)
+git clone https://github.com/RustamSheoran/nvim.git ~/.config/nvim
+# or with SSH: git clone git@github.com:RustamSheoran/nvim.git ~/.config/nvim
 
 # 3. Launch Neovim (LazyVim will automatically install all plugins)
 nvim
@@ -256,13 +258,15 @@ Press `<leader>rh` before any rated round (or open any file inside `~/cp` for an
 2. **Mold Fast Linker:** Confirms `mold` is active for fast linking.
 3. **Bits Precompiled Header:** Verifies `<bits/stdc++.h.gch>` exists and loads in ~0.12s.
 4. **Stack Limit:** Confirms your shell has 262,144 KB or unlimited stack for recursion safety.
-5. **CF Cookie Submission:** Checks if Zen/browser cookies are available for headless submit.
+5. **CF Cookie Submission:** Checks if default browser cookies are available for headless submit.
 6. **Codeforces Handle:** Confirms handle is set for standings and live watcher.
 7. **Companion Server:** Verifies port 27121 is ready for Competitive Companion.
 8. **Sanitizer Protection:** Validates that `-fsanitize=address,undefined` executes cleanly.
 
 > [!TIP]
-> Opening Neovim in your `~/cp` directory automatically verifies your environment in the background via [`lua/config/autocmds.lua`](lua/config/autocmds.lua). If all 8 checks pass, a subtle notification confirms readiness; if anything needs attention, the full checklist pops up immediately.
+> Opening Neovim in your `~/cp` directory automatically verifies your environment in the background via [`lua/config/autocmds.lua`](lua/config/autocmds.lua) using non-intrusive notifications (never interrupting modal popups). Checks run at most once a week or immediately after a `git pull`. Press `<leader>rh` at any time to open full interactive diagnostics.
+> 
+> Neovim also checks for upstream configuration updates in the background. If a new commit is pushed, you will receive an alert to pull. Run `:CpPull` (or `git pull`) to update and automatically verify your environment.
 
 ### 2. One-Click Problem Fetching
 1. Open Neovim in your `~/cp` directory.

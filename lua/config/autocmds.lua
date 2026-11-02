@@ -239,6 +239,29 @@ if cur_name:find(cp_root, 1, true) and cur_name:match("%.cpp$") and not vim.b[cu
   M.position_at_solve(cur_buf, 0, false)
 end
 
+-- ==================== Background Config Git Update Checker ====================
+local git_update = require("config.git_update")
+git_update.setup()
+
+vim.api.nvim_create_autocmd("VimEnter", {
+  group = vim.api.nvim_create_augroup("CpGitUpdateCheck", { clear = true }),
+  callback = function()
+    vim.defer_fn(function()
+      pcall(function()
+        git_update.check_for_updates(false)
+      end)
+    end, 2500)
+  end,
+})
+
+if vim.v.vim_did_enter == 1 then
+  vim.defer_fn(function()
+    pcall(function()
+      git_update.check_for_updates(false)
+    end)
+  end, 2500)
+end
+
 return M
 
 

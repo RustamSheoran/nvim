@@ -593,7 +593,17 @@ function M.submit(url, filepath)
     end)
 
     local asan_bin = "/tmp/__cph_asan_check"
-    vim.system({ "g++", "-O2", "-std=c++17", "-fuse-ld=mold", "-fsanitize=address,undefined", "-g", filepath, "-o", asan_bin }, { text = true }, function(asan_comp)
+    local asan_cmd = { "g++", "-O2", "-std=c++17" }
+    if vim.fn.executable("mold") == 1 and (vim.uv or vim.loop).os_uname().sysname == "Linux" then
+      table.insert(asan_cmd, "-fuse-ld=mold")
+    end
+    table.insert(asan_cmd, "-fsanitize=address,undefined")
+    table.insert(asan_cmd, "-g")
+    table.insert(asan_cmd, filepath)
+    table.insert(asan_cmd, "-o")
+    table.insert(asan_cmd, asan_bin)
+
+    vim.system(asan_cmd, { text = true }, function(asan_comp)
       if asan_comp.code ~= 0 then
         vim.schedule(function()
           vim.notify("=== SANITIZER COMPILE FAILED: SUBMISSION ABORTED ===\n" .. asan_comp.stderr, vim.log.levels.ERROR, { title = "Submit" })
@@ -709,11 +719,16 @@ function M.submit(url, filepath)
                   end)
                 else
                   if result_or_err == "not_logged_in" then
-                    -- User was notified and login page was opened in browser
+                    -- User was notified and login page was opened in default browser
                     return
                   end
-                  local reason = type(result_or_err) == "string" and result_or_err or "Submission failed"
-                  vim.notify(string.format("⚠️ Headless cookie submit failed (%s). Falling back to browser cph-submit...", reason), vim.log.levels.WARN, { title = "Codeforces Submit" })
+                  local bname = (package.loaded["config.cf_cookie_submit"] and package.loaded["config.cf_cookie_submit"].last_detected_browser) or "default browser"
+                  if result_or_err == "chromium_keyring_locked" then
+                    vim.notify(string.format("ℹ️ Submitting in %s via cph-submit...", bname), vim.log.levels.INFO, { title = "Codeforces Submit" })
+                  else
+                    local reason = type(result_or_err) == "string" and result_or_err or "Submission failed"
+                    vim.notify(string.format("⚠️ Headless cookie submit unavailable (%s). Submitting in %s...", reason, bname), vim.log.levels.WARN, { title = "Codeforces Submit" })
+                  end
                   fallback_browser_submit()
                 end
               end)

@@ -35,18 +35,14 @@ function M.execute_with_file(source_file, input_file)
 
     local exec_script = string.format([[
       bash -c '
-        ulimit -s 262144 2>/dev/null
-        _start=$(date +%%s%%N)
+        ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
         "%s" < "%s" > "%s"
-        _rc=$?
-        _end=$(date +%%s%%N)
-        _elapsed=$(( (_end - _start) / 1000000 ))
-        echo "ELAPSED:$_elapsed"
-        exit $_rc
       '
     ]], bin_file, input_file, output_file)
 
+    local start_time = (vim.uv or vim.loop).hrtime()
     vim.system({ "bash", "-c", exec_script }, { text = true }, function(exec_obj)
+      local elapsed = math.floor(((vim.uv or vim.loop).hrtime() - start_time) / 1e6)
       pcall(vim.fn.delete, bin_file)
 
       vim.schedule(function()
@@ -55,8 +51,6 @@ function M.execute_with_file(source_file, input_file)
           vim.notify("=== RUNTIME ERROR ===\n" .. err, vim.log.levels.ERROR, { title = "Runtime Error" })
           return
         end
-
-        local elapsed = (exec_obj.stdout or ""):match("ELAPSED:(%d+)") or "0"
         local line_count = 0
         local f = io.open(output_file, "r")
         if f then

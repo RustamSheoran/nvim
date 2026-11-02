@@ -1,22 +1,95 @@
+# ==============================================================================
+# Local User & Privacy Data (Never push to remote)
+# ==============================================================================
+codeforces_handle.txt
+cf_cookie_consent.txt
+*cookie*
+*.cookie*
+*.cookiejar
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.token
+*.secret
+*.auth
+*session*
+
+# Local Runtime & Machine State
+*.state
+*.state.json
+shada/
+*.shada
+*.log
+nvim.log
+
+# ==============================================================================
+# C++ Binaries, Objects & Precompiled Headers
+# ==============================================================================
+*.gch
+*.gch/
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+a.out
+*.dSYM/
+
+# Competitive Programming Stress & Runner Binaries
+__sol
+__brute
+__gen
+__debug
+__test_san
+__in
+__out_sol
+__out_brute
+__out
+
+# CP Testcase Files & Problem Artifacts
+*.testcases
+*.testcase
+*.url
+output.txt
+input.txt
+
+# ==============================================================================
+# Temporary, Swap, Backup & Editor Files
+# ==============================================================================
+*~
+*.swp
+*.swo
+*.swn
+.*.swp
+.*.swo
+*.bak
+*.bak.*
+*.backup
+*.old
+*.orig
+*.tmp
+*.temp
 tt.*
 .tests
 doc/tags
 debug
 .repro
 foo.*
-*.log
 data
-
-# Standard Neovim ignores
-*~
-*.swp
-*.swo
 .netrwhist
 Session.vim
 Sessionx.vim
-*.shada
 
-# User local runtime state
-codeforces_handle.txt
-cf_cookie_consent.txt
-
+# ==============================================================================
+# OS-Specific Metadata
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

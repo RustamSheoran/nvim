@@ -1,6 +1,12 @@
 local M = {}
 
-local handle_file = vim.fn.stdpath("config") .. "/codeforces_handle.txt"
+-- Store personal user handle strictly in local machine state directory (~/.local/state/nvim/)
+-- Never in vim.fn.stdpath("config") so it is never tracked by git or shared across clones
+local function get_handle_file()
+  local state_dir = vim.fn.stdpath("state")
+  pcall(vim.fn.mkdir, state_dir, "p")
+  return state_dir .. "/codeforces_handle.txt"
+end
 
 -- Title case helper (e.g. "candidate master" -> "Candidate Master")
 local function title_case(str)
@@ -253,12 +259,19 @@ function M.get_handle(callback)
     return vim.g.codeforces_handle
   end
 
-  if vim.fn.filereadable(handle_file) == 1 then
-    local lines = vim.fn.readfile(handle_file)
-    if #lines > 0 and vim.trim(lines[1]) ~= "" then
-      vim.g.codeforces_handle = vim.trim(lines[1])
-      if callback then callback(vim.g.codeforces_handle) end
-      return vim.g.codeforces_handle
+  local handle_path = get_handle_file()
+  local candidates = {
+    handle_path,
+    vim.fn.stdpath("data") .. "/codeforces_handle.txt",
+  }
+  for _, path in ipairs(candidates) do
+    if vim.fn.filereadable(path) == 1 then
+      local lines = vim.fn.readfile(path)
+      if #lines > 0 and vim.trim(lines[1]) ~= "" then
+        vim.g.codeforces_handle = vim.trim(lines[1])
+        if callback then callback(vim.g.codeforces_handle) end
+        return vim.g.codeforces_handle
+      end
     end
   end
 
@@ -267,7 +280,7 @@ function M.get_handle(callback)
       if input and vim.trim(input) ~= "" then
         local h = vim.trim(input)
         vim.g.codeforces_handle = h
-        pcall(vim.fn.writefile, { h }, handle_file)
+        pcall(vim.fn.writefile, { h }, handle_path)
         callback(h)
       else
         callback(nil)
@@ -1013,7 +1026,7 @@ function M.show_contest_list(contest_id, force_refresh)
       vim.ui.input({ prompt = "Enter Codeforces Handle: " }, function(new_h)
         if new_h and vim.trim(new_h) ~= "" then
           vim.g.codeforces_handle = vim.trim(new_h)
-          pcall(vim.fn.writefile, { vim.g.codeforces_handle }, handle_file)
+          pcall(vim.fn.writefile, { vim.g.codeforces_handle }, get_handle_file())
           M.show_contest_list(contest_id, false)
         end
       end)
