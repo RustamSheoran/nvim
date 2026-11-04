@@ -243,7 +243,6 @@ To eliminate typing lag and noisy diagnostics:
 - `--clang-tidy=false`: Disables static analysis warnings (e.g. yellow warnings on `bit_width` or magic numbers) while keeping real syntax errors fully active.
 - `--header-insertion=never`: Prevents unwanted automatic `#include` additions.
 - `inlay_hints = { enabled = false }`: Disables virtual inline parameter hints that cause stutter during rapid typing.
-- **CP Header Warning Suppression:** When Neovim is open in `~/cp`, unused include warnings (e.g. `Included header ... is not used directly`) are cleanly filtered out via Clangd LSP handlers and `~/cp/.clangd`, keeping your diagnostics list 100% focused on genuine logic and syntax errors.
 
 ---
 
