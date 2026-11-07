@@ -129,7 +129,7 @@ function M.check_for_updates(force)
   )
 end
 
--- Helper command to pull latest updates and immediately run the environment health check
+-- Helper command to pull latest configuration updates.
 function M.pull_and_verify()
   local config_dir = vim.fn.stdpath("config")
   vim.notify("Pulling latest configuration updates...", vim.log.levels.INFO, { title = "Git Pull" })
@@ -144,9 +144,7 @@ function M.pull_and_verify()
           if out:find("Already up to date") then
             vim.notify("✅ Configuration already up to date.", vim.log.levels.INFO, { title = "Git Pull" })
           else
-            vim.notify("✅ Configuration updated successfully! Verifying environment...", vim.log.levels.INFO, { title = "Git Pull" })
-            -- Automatically verify health after git pull
-            require("config.cp_health").check({ auto = true, force = true })
+            vim.notify("✅ Configuration updated successfully!", vim.log.levels.INFO, { title = "Git Pull" })
           end
         else
           local err = vim.trim(obj.stderr or obj.stdout or "git pull failed")

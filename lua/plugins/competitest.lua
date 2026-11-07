@@ -86,7 +86,7 @@ end
 return {
   "xeluxee/competitest.nvim",
   dependencies = "MunifTanjim/nui.nvim",
-  lazy = not vim.fn.getcwd():find(vim.fn.expand("~/cp"), 1, true),
+  lazy = false,
   opts = {
     received_problems_prompt_path = false,
     received_contests_prompt_directory = false,
@@ -101,6 +101,7 @@ return {
         vim.fn.mkdir(dir, "p")
         local url_file = vim.fn.fnamemodify(target_path, ":r") .. ".url"
         vim.fn.writefile({ task.url }, url_file, "b")
+        vim.fn.writefile({ vim.json.encode({ url = task.url, judge = task.judge, group = task.group, name = task.name }) }, vim.fn.fnamemodify(target_path, ":r") .. ".meta.json", "b")
       end
 
       return target_path
@@ -138,18 +139,11 @@ return {
     { "<leader>re", "<cmd>CompetiTest edit_testcase<cr>", desc = "Edit Testcase" },
     { "<leader>rD", "<cmd>CompetiTest delete_testcase<cr>", desc = "Delete Testcase" },
     {
-      "<leader>rd",
-      function()
-        require("config.debug_runner").run()
-      end,
-      desc = "Run Local Debug (-DLOCAL -DDEBUG)",
-    },
-    {
       "<leader>rx",
       function()
         require("config.debug_runner").run()
       end,
-      desc = "Run Local Debug (alias)",
+      desc = "Run Local Debug (-DLOCAL -DDEBUG)",
     },
     {
       "<leader>rb",
@@ -159,18 +153,18 @@ return {
       desc = "Run Stress Test (sol vs brute)",
     },
     {
-      "<leader>rB",
+      "<leader>rw",
       function()
         require("config.stress").open_brute()
       end,
-      desc = "Open problem brute force (<stem>_brute.cpp)",
+      desc = "Create/open brute-force template",
     },
     {
-      "<leader>rG",
+      "<leader>rg",
       function()
         require("config.stress").open_gen()
       end,
-      desc = "Open problem generator (<stem>_gen.cpp)",
+      desc = "Create/open random-test generator",
     },
     {
       "<leader>ru",
@@ -268,7 +262,7 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
           end
         end)
       end,
-      desc = "Verify compilation, comment dbg, and submit via cph-submit",
+      desc = "Submit saved solution",
     },
     {
       "<leader>rl",
@@ -281,40 +275,10 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
       "<leader>rc",
       function()
         local filepath = vim.fn.expand("%:p")
-        local count = require("config.cph_server").comment_dbg(filepath)
-        vim.notify(string.format("Commented out %d dbg statement(s)", count), vim.log.levels.INFO, { title = "Debug" })
+        local count = require("config.cph_server").toggle_dbg(filepath)
+        vim.notify(string.format("Toggled %d dbg statement(s)", count), vim.log.levels.INFO, { title = "Debug" })
       end,
-      desc = "Comment all dbg statements in buffer",
-    },
-    {
-      "<leader>rC",
-      function()
-        local filepath = vim.fn.expand("%:p")
-        local count = require("config.cph_server").uncomment_dbg(filepath)
-        vim.notify(string.format("Uncommented %d dbg statement(s)", count), vim.log.levels.INFO, { title = "Debug" })
-      end,
-      desc = "Uncomment all dbg statements in buffer",
-    },
-    {
-      "<leader>rk",
-      function()
-        require("config.cf_cookie_submit").toggle_cookie_allowed()
-      end,
-      desc = "Toggle Headless Cookie Submit (Global Privacy Consent)",
-    },
-    {
-      "<leader>rh",
-      function()
-        require("config.cp_health").check()
-      end,
-      desc = "Pre-Contest Environment Health Check (GCC, Mold, PCH, Stack)",
-    },
-    {
-      "<leader>rT",
-      function()
-        require("config.codeforces").show_contest_timer()
-      end,
-      desc = "Codeforces Contest Timer & Live Countdown HUD",
+      desc = "Toggle all dbg statements",
     },
     {
       "<leader>rm",

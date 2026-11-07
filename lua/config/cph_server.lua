@@ -3,6 +3,7 @@ local uv = vim.uv or vim.loop
 local server = nil
 local current_payload = nil
 local current_payload_platform = nil
+local max_request_bytes = 16 * 1024 * 1024
 
 function M.detect_judge_and_contest(task)
   local url = task.url or ""
@@ -157,14 +158,17 @@ function M.get_platform_language_id(platform, lang)
 end
 
 function M.start()
-  if server then return end
+  if server then return true end
   server = uv.new_tcp()
   
   local bound, bind_err = server:bind("127.0.0.1", 27121)
   if not bound and bind_err then
+    vim.schedule(function()
+      vim.notify("CPH server could not bind 127.0.0.1:27121: " .. tostring(bind_err), vim.log.levels.ERROR, { title = "CPH Server" })
+    end)
     server:close()
     server = nil
-    return
+    return false
   end
   
   local listen_success, listen_err = server:listen(128, function(err)
@@ -184,9 +188,25 @@ function M.start()
       if chunk then
         request_data = request_data .. chunk
       end
+
+      if #request_data > max_request_bytes then
+        if not client:is_closing() then
+          client:write("HTTP/1.1 413 Payload Too Large\r\nContent-Length: 0\r\n\r\n", function()
+            if not client:is_closing() then client:close() end
+          end)
+        end
+        return
+      end
       
       if not request_processed and request_data:find("\r\n\r\n") then
         local content_length = request_data:match("[Cc]ontent%-[Ll]ength:%s*(%d+)")
+        if content_length and tonumber(content_length) > max_request_bytes then
+          client:write("HTTP/1.1 413 Payload Too Large\r\nContent-Length: 0\r\n\r\n", function()
+            if not client:is_closing() then client:close() end
+          end)
+          request_processed = true
+          return
+        end
         local header_end = request_data:find("\r\n\r\n") + 3
         local body = request_data:sub(header_end + 1)
         
@@ -257,6 +277,7 @@ function M.start()
               if task.url and task.url ~= "" then
                 local url_file = vim.fn.fnamemodify(target_path, ":r") .. ".url"
                 vim.fn.writefile({ task.url }, url_file, "b")
+                vim.fn.writefile({ vim.json.encode({ url = task.url, judge = task.judge, group = task.group, name = task.name }) }, vim.fn.fnamemodify(target_path, ":r") .. ".meta.json", "b")
               end
               
               -- Save testcases via competitest msgpack file natively
@@ -346,7 +367,9 @@ function M.start()
   if listen_err then
     server:close()
     server = nil
+    return false
   end
+  return listen_success ~= false
 end
 
 function M.comment_dbg(filepath)
@@ -459,327 +482,80 @@ function M.uncomment_dbg(filepath)
   return count
 end
 
-local asan_ns = vim.api.nvim_create_namespace("cph_asan_error")
-
-function M.clear_asan_errors(bufnr)
-  if bufnr and bufnr ~= -1 and vim.api.nvim_buf_is_valid(bufnr) then
-    pcall(vim.api.nvim_buf_clear_namespace, bufnr, asan_ns, 0, -1)
-    pcall(vim.diagnostic.reset, asan_ns, bufnr)
+function M.toggle_dbg(filepath)
+  local bufnr = vim.fn.bufnr(filepath)
+  local lines
+  if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
+    lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  else
+    local f = io.open(filepath, "r")
+    if not f then return 0 end
+    lines = vim.split(f:read("*a"), "\n", { plain = true })
+    f:close()
   end
+  for _, line in ipairs(lines) do
+    local rest = line:match("^%s*(.-)$")
+    if rest and not rest:match("^//") and not rest:match("^#") and rest:match("%f[%a_]dbg%s*%(") then
+      return M.comment_dbg(filepath)
+    end
+  end
+  return M.uncomment_dbg(filepath)
 end
 
-function M.highlight_asan_errors(filepath, err_output, testcase_idx)
-  local bufnr = vim.fn.bufnr(filepath)
-  if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) then
+
+-- Direct submission path: no syntax check, sanitizer build, testcase execution,
+-- source rewriting, or verdict polling. The editor submits exactly what is saved.
+M.submit = function(url, filepath)
+  local f = io.open(filepath, "r")
+  if not f then
+    vim.notify("Cannot read solution: " .. filepath, vim.log.levels.ERROR, { title = "Submit" })
     return
   end
+  local source_code = f:read("*a")
+  f:close()
+  pcall(vim.fn.setreg, "+", source_code)
+  pcall(vim.fn.setreg, '"', source_code)
 
-  M.clear_asan_errors(bufnr)
-
-  local filename = vim.fn.fnamemodify(filepath, ":t")
-  local errors = {}
-  local seen_lines = {}
-
-  -- 1. Check UBSan runtime errors: "path/file.cpp:5:9: runtime error: ..."
-  for file, line, col, msg in err_output:gmatch("([^\r\n:]+):(%d+):(%d+):%s*runtime error:%s*([^\r\n]+)") do
-    if file:find(filename, 1, true) then
-      local lnum = tonumber(line)
-      if lnum and not seen_lines[lnum] then
-        seen_lines[lnum] = true
-        table.insert(errors, { line = lnum, col = tonumber(col) or 1, message = "UBSan: " .. msg })
-      end
-    end
+  local platform = "Other"
+  if url:find("codeforces%.com") then
+    platform = "Codeforces"
+  elseif url:find("atcoder%.jp") then
+    platform = "AtCoder"
+  elseif url:find("codechef%.com") then
+    platform = "CodeChef"
+  elseif url:find("cses%.fi") then
+    platform = "CSES"
+  elseif url:find("leetcode%.com") then
+    platform = "LeetCode"
+  elseif url:find("spoj%.com") then
+    platform = "SPOJ"
+  elseif url:find("kattis%.com") then
+    platform = "Kattis"
+  elseif url:find("maang%.in") or url:find("algozenith") then
+    platform = "AlgoZenith"
   end
-
-  -- 2. Check ASan summary: "SUMMARY: AddressSanitizer: heap-buffer-overflow /path/file.cpp:6 in solve()"
-  for err_type, file, line in err_output:gmatch("SUMMARY:%s*AddressSanitizer:%s*([%w%-_]+)%s+([^\r\n:]+):(%d+)") do
-    if file:find(filename, 1, true) then
-      local lnum = tonumber(line)
-      if lnum and not seen_lines[lnum] then
-        seen_lines[lnum] = true
-        table.insert(errors, { line = lnum, col = 1, message = "ASan: " .. err_type })
-      end
-    end
-  end
-
-  -- 3. Check stack frames: "#0 0x... in solve() /path/file.cpp:6"
-  local top_reason = err_output:match("ERROR:%s*AddressSanitizer:%s*([%w%-_]+)") or "Sanitizer Error"
-  for func, file, line in err_output:gmatch("in%s+([%w_]+)%s*%b()%s+([^\r\n:]+):(%d+)") do
-    if file:find(filename, 1, true) then
-      local lnum = tonumber(line)
-      if lnum and not seen_lines[lnum] then
-        seen_lines[lnum] = true
-        table.insert(errors, { line = lnum, col = 1, message = string.format("ASan: %s (in %s)", top_reason, func) })
-      end
-    end
-  end
-
-  if #errors == 0 then
-    -- Fallback: check any pattern "filename:line" in err_output
-    for line in err_output:gmatch(vim.pesc(filename) .. ":(%d+)") do
-      local lnum = tonumber(line)
-      if lnum and not seen_lines[lnum] then
-        seen_lines[lnum] = true
-        table.insert(errors, { line = lnum, col = 1, message = "Sanitizer: " .. top_reason })
-      end
-    end
-  end
-
-  local line_count = vim.api.nvim_buf_line_count(bufnr)
-  local diags = {}
-
-  for _, err in ipairs(errors) do
-    if err.line >= 1 and err.line <= line_count then
-      -- Red line background highlight + Red virtual comment at end of line
-      pcall(vim.api.nvim_buf_set_extmark, bufnr, asan_ns, err.line - 1, 0, {
-        line_hl_group = "DiffDelete",
-        virt_text = { { "  // 🚨 " .. err.message, "DiagnosticError" } },
-        virt_text_pos = "eol",
-        priority = 5000,
-      })
-
-      table.insert(diags, {
-        lnum = err.line - 1,
-        col = (err.col or 1) - 1,
-        severity = vim.diagnostic.severity.ERROR,
-        source = "Sanitizer",
-        message = string.format("Sample #%d: %s", testcase_idx, err.message),
-      })
-    end
-  end
-
-  if #diags > 0 then
-    pcall(vim.diagnostic.set, asan_ns, bufnr, diags)
-    -- Jump window cursor directly to the first offending line
-    pcall(vim.api.nvim_win_set_cursor, 0, { errors[1].line, (errors[1].col or 1) - 1 })
-  end
-
-  -- Auto-clear red marks as soon as the user starts editing
-  vim.api.nvim_create_autocmd({ "TextChanged", "InsertEnter" }, {
-    buffer = bufnr,
-    once = true,
-    callback = function()
-      M.clear_asan_errors(bufnr)
-    end,
+  local payload = vim.fn.json_encode({
+    empty = false,
+    url = url,
+    problemName = "",
+    platform = platform,
+    languageId = platform == "Codeforces" and M.get_platform_language_id(platform, "cpp") or "91",
+    sourceCode = source_code,
   })
-end
-
-function M.submit(url, filepath)
-  local bufnr = vim.fn.bufnr(filepath)
-  M.clear_asan_errors(bufnr)
-
-  -- Step 1/3: Comment all dbg statements
-  local dbg_count = M.comment_dbg(filepath)
-  if dbg_count > 0 then
-    vim.notify(string.format("Step 1/3: Commented out %d dbg statement(s)...", dbg_count), vim.log.levels.INFO, { title = "Submit" })
-  else
-    vim.notify("Step 1/3: No active dbg statements found...", vim.log.levels.INFO, { title = "Submit" })
+  current_payload = payload
+  current_payload_platform = platform
+  if not M.start() then
+    current_payload = nil
+    current_payload_platform = nil
+    vim.notify("Cannot submit: local CPH server is unavailable on port 27121.", vim.log.levels.ERROR, { title = "Submit" })
+    return
   end
-
-  vim.notify("Step 2/3: Checking syntax...", vim.log.levels.INFO, { title = "Submit" })
-
-  -- 1. Fast Syntax Check
-  vim.system({ "g++", "-std=c++17", "-fsyntax-only", filepath }, { text = true }, function(syn_obj)
-    if syn_obj.code ~= 0 then
-      vim.schedule(function()
-        vim.notify("=== SYNTAX CHECK FAILED: SUBMISSION ABORTED ===\n" .. syn_obj.stderr, vim.log.levels.ERROR, { title = "Submit" })
-      end)
-      return
-    end
-
-    -- 2. AddressSanitizer & UndefinedBehaviorSanitizer Sanity Check
-    vim.schedule(function()
-      vim.notify("Step 3/3: Running Sanitizer check (ASan/UBSan)...", vim.log.levels.INFO, { title = "Submit" })
-    end)
-
-    local asan_bin = "/tmp/__cph_asan_check"
-    local asan_cmd = { "g++", "-O2", "-std=c++17" }
-    if vim.fn.executable("mold") == 1 and (vim.uv or vim.loop).os_uname().sysname == "Linux" then
-      table.insert(asan_cmd, "-fuse-ld=mold")
-    end
-    table.insert(asan_cmd, "-fsanitize=address,undefined")
-    table.insert(asan_cmd, "-g")
-    table.insert(asan_cmd, filepath)
-    table.insert(asan_cmd, "-o")
-    table.insert(asan_cmd, asan_bin)
-
-    vim.system(asan_cmd, { text = true }, function(asan_comp)
-      if asan_comp.code ~= 0 then
-        vim.schedule(function()
-          vim.notify("=== SANITIZER COMPILE FAILED: SUBMISSION ABORTED ===\n" .. asan_comp.stderr, vim.log.levels.ERROR, { title = "Submit" })
-        end)
-        return
-      end
-
-      -- Check if sample testcases exist
-      local tc_file = vim.fn.fnamemodify(filepath, ":r") .. ".testcases"
-      local tc_list = {}
-      if vim.fn.filereadable(tc_file) == 1 then
-        pcall(function()
-          local tctbl = require("competitest.testcases").single_file.load(tc_file)
-          local keys = {}
-          for k in pairs(tctbl) do
-            table.insert(keys, k)
-          end
-          table.sort(keys)
-          for _, k in ipairs(keys) do
-            if tctbl[k] and tctbl[k].input and tctbl[k].input ~= "" then
-              table.insert(tc_list, tctbl[k].input)
-            end
-          end
-        end)
-      end
-
-      -- Helper to complete submission
-      local function do_submit()
-        vim.schedule(function()
-          pcall(vim.fn.delete, asan_bin)
-          vim.notify("✅ Sanity check passed! Submitting code...", vim.log.levels.INFO, { title = "Submit" })
-
-          local f = io.open(filepath, "r")
-          if not f then
-            return
-          end
-          local source_code = f:read("*a")
-          f:close()
-
-          -- Always copy verified, sanitized code to system clipboard
-          pcall(vim.fn.setreg, "+", source_code)
-          pcall(vim.fn.setreg, '"', source_code)
-
-          local platform = "Codeforces"
-          if url:find("atcoder%.jp") then
-            platform = "AtCoder"
-          elseif url:find("codechef%.com") then
-            platform = "CodeChef"
-          elseif url:find("cses%.fi") then
-            platform = "CSES"
-          elseif url:find("leetcode%.com") then
-            platform = "LeetCode"
-          elseif url:find("spoj%.com") then
-            platform = "SPOJ"
-          elseif url:find("kattis%.com") then
-            platform = "Kattis"
-          elseif url:find("maang%.in") or url:find("algozenith") then
-            platform = "AlgoZenith"
-          end
-
-          local function fallback_browser_submit()
-            local payload_tbl = {
-              empty = false,
-              url = url,
-              problemName = "",
-              platform = platform,
-              languageId = M.get_platform_language_id(platform),
-              sourceCode = source_code,
-            }
-
-            current_payload = vim.fn.json_encode(payload_tbl)
-            current_payload_platform = platform
-            M.start()
-
-            if platform == "Codeforces" or platform == "CSES" or platform == "AlgoZenith" then
-              if platform == "Codeforces" then
-                vim.notify("Opening Codeforces submission in browser via cph-submit...", vim.log.levels.INFO, { title = "Submit" })
-                if vim.ui and vim.ui.open then
-                  vim.ui.open(url)
-                else
-                  vim.system({ "xdg-open", url }, { detach = true })
-                end
-                vim.defer_fn(function()
-                  pcall(function()
-                    require("config.codeforces").watch_submission(nil, nil, nil)
-                  end)
-                end, 100)
-              end
-            else
-              -- AtCoder, CodeChef, LeetCode, and other platforms:
-              vim.notify(string.format("✅ %s: Opening submission page in browser...", platform), vim.log.levels.INFO, { title = "Submit" })
-              if vim.ui and vim.ui.open then
-                vim.ui.open(url)
-              else
-                vim.system({ "xdg-open", url }, { detach = true })
-              end
-            end
-          end
-
-          -- If Codeforces: first attempt headless cookie submission if enabled
-          if platform == "Codeforces" then
-            local cf_cookie = require("config.cf_cookie_submit")
-            if cf_cookie.is_cookie_allowed() then
-              vim.notify("🚀 Submitting directly via browser cookies (zero browser overhead)...", vim.log.levels.INFO, { title = "Codeforces Submit" })
-              cf_cookie.submit(url, filepath, function(ok, result_or_err)
-                if ok then
-                  local handle = type(result_or_err) == "table" and result_or_err.handle
-                  local c_id = type(result_or_err) == "table" and result_or_err.contest_id
-                  local p_idx = type(result_or_err) == "table" and result_or_err.problem_index
-                  vim.notify(string.format("✅ Codeforces submission sent for %s (%s)! Watching verdict...", p_idx or "problem", handle or "user"), vim.log.levels.INFO, { title = "Codeforces Submit" })
-                  pcall(function()
-                    require("config.codeforces").watch_submission(handle, c_id, p_idx)
-                  end)
-                else
-                  if result_or_err == "not_logged_in" then
-                    -- User was notified and login page was opened in default browser
-                    return
-                  end
-                  local bname = (package.loaded["config.cf_cookie_submit"] and package.loaded["config.cf_cookie_submit"].last_detected_browser) or "default browser"
-                  if result_or_err == "chromium_keyring_locked" then
-                    vim.notify(string.format("ℹ️ Submitting in %s via cph-submit...", bname), vim.log.levels.INFO, { title = "Codeforces Submit" })
-                  else
-                    local reason = type(result_or_err) == "string" and result_or_err or "Submission failed"
-                    vim.notify(string.format("⚠️ Headless cookie submit unavailable (%s). Submitting in %s...", reason, bname), vim.log.levels.WARN, { title = "Codeforces Submit" })
-                  end
-                  fallback_browser_submit()
-                end
-              end)
-              return
-            else
-              -- Cookie submit is disabled globally by user (<leader>rk)
-              fallback_browser_submit()
-              return
-            end
-          end
-
-          -- Non-Codeforces platforms:
-          fallback_browser_submit()
-        end)
-      end
-
-      if #tc_list == 0 then
-        do_submit()
-        return
-      end
-
-      -- Run against each sample testcase
-      local function run_testcase(index)
-        if index > #tc_list then
-          do_submit()
-          return
-        end
-
-        vim.system({ asan_bin }, { stdin = tc_list[index], text = true }, function(run_obj)
-          local err_output = (run_obj.stderr or "") .. (run_obj.stdout or "")
-          local has_asan_err = run_obj.code ~= 0
-            or err_output:find("AddressSanitizer")
-            or err_output:find("runtime error:")
-
-          if has_asan_err then
-            vim.schedule(function()
-              pcall(vim.fn.delete, asan_bin)
-              M.highlight_asan_errors(filepath, err_output, index)
-              local msg = string.format("🚨 SANITIZER ERROR ON SAMPLE TESTCASE #%d: SUBMISSION ABORTED!\n\n%s", index, err_output)
-              vim.notify(msg, vim.log.levels.ERROR, { title = "Submit Aborted" })
-            end)
-            return
-          end
-
-          run_testcase(index + 1)
-        end)
-      end
-
-      run_testcase(1)
-    end)
-  end)
+  vim.notify("Submission payload ready; opening submission page.", vim.log.levels.INFO, { title = "Submit" })
+  if vim.ui and vim.ui.open then
+    vim.ui.open(url)
+  else
+    vim.system({ "xdg-open", url }, { detach = true })
+  end
 end
 
 return M

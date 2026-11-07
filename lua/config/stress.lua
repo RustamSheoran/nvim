@@ -114,8 +114,8 @@ int main() {
 //   3. Implement your brute-force logic inside solve() below.
 //
 // WORKFLOW:
-//   - Open with <leader>rB, write the brute logic, then save (:w or :q).
-//   - Ensure %s produces random inputs (<leader>rG).
+//   - Open with <leader>rw, write the brute logic, then save (:w or :q).
+//   - Ensure %s produces random inputs (<leader>rg).
 //   - In your main solution file, press <leader>rb to start stress testing!
 // ============================================================================
 
@@ -171,7 +171,7 @@ int main() {
 //     cout << "\n";
 //
 // WORKFLOW:
-//   - Open with <leader>rG, adapt main() to the problem's input format, save (:q).
+//   - Open with <leader>rg, adapt main() to the problem's input format, save (:q).
 //   - In your main solution file, press <leader>rb to start stress testing!
 // ============================================================================
 
@@ -317,7 +317,7 @@ function M.run()
   local created_any = M.ensure_files(paths.dir, paths.stem)
   if created_any then
     vim.notify(
-      string.format("Created %s and %s!\nUse <leader>rB and <leader>rG to view/edit them.", paths.brute_name, paths.gen_name),
+      string.format("Created %s and %s!\nUse <leader>rw and <leader>rg to view/edit them.", paths.brute_name, paths.gen_name),
       vim.log.levels.INFO,
       { title = "Stress Test" }
     )
@@ -334,7 +334,7 @@ function M.run()
 
   local mold_flag = (vim.fn.executable("mold") == 1 and (vim.uv or vim.loop).os_uname().sysname == "Linux") and "-fuse-ld=mold " or ""
   local stress_cmd = string.format([[
-cd '%s' && bash -c '
+cd %s && bash -c '
 ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
 echo -e "\033[1;34m=== COMPILING %s, %s, and %s ===\033[0m"
 g++ -O2 -std=c++17 %s"%s" -o __sol || exit 1
@@ -372,7 +372,12 @@ while true; do
     ((i++))
 done
 '
-]], paths.dir, paths.sol_name, paths.brute_name, paths.gen_name, mold_flag, paths.sol_name, mold_flag, paths.brute_name, mold_flag, paths.gen_name, paths.sol_name)
+]], vim.fn.shellescape(paths.dir), paths.sol_name, paths.brute_name, paths.gen_name, mold_flag, paths.sol_name, mold_flag, paths.brute_name, mold_flag, paths.gen_name, paths.sol_name)
+
+  local run_id = vim.fn.fnamemodify(vim.fn.tempname(), ":t")
+  stress_cmd = stress_cmd:gsub("__sol([^_%w])", ".nvim_sol_" .. run_id .. "%1")
+  stress_cmd = stress_cmd:gsub("__brute([^_%w])", ".nvim_brute_" .. run_id .. "%1")
+  stress_cmd = stress_cmd:gsub("__gen([^_%w])", ".nvim_gen_" .. run_id .. "%1")
 
   if Snacks and Snacks.terminal then
     Snacks.terminal.open(stress_cmd, {
