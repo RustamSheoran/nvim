@@ -611,30 +611,22 @@ function M.submit(url, filepath)
   local bufnr = vim.fn.bufnr(filepath)
   M.clear_asan_errors(bufnr)
 
-  -- Step 1/3: Comment all dbg statements
+  -- Comment all dbg statements
   local dbg_count = M.comment_dbg(filepath)
   if dbg_count > 0 then
-    vim.notify(string.format("Step 1/3: Commented out %d dbg statement(s)...", dbg_count), vim.log.levels.INFO, { title = "Submit" })
-  else
-    vim.notify("Step 1/3: No active dbg statements found...", vim.log.levels.INFO, { title = "Submit" })
+    vim.notify(string.format("Commented out %d dbg statement(s)", dbg_count), vim.log.levels.INFO, { title = "Submit", timeout = 1500 })
   end
-
-  vim.notify("Step 2/3: Checking syntax...", vim.log.levels.INFO, { title = "Submit" })
 
   -- 1. Fast Syntax Check
   vim.system({ "g++", "-std=c++17", "-fsyntax-only", filepath }, { text = true }, function(syn_obj)
     if syn_obj.code ~= 0 then
       vim.schedule(function()
-        vim.notify("=== SYNTAX CHECK FAILED: SUBMISSION ABORTED ===\n" .. syn_obj.stderr, vim.log.levels.ERROR, { title = "Submit" })
+        vim.notify("=== SYNTAX CHECK FAILED: SUBMISSION ABORTED ===\n" .. syn_obj.stderr, vim.log.levels.ERROR, { title = "Submit", timeout = 5000 })
       end)
       return
     end
 
     -- 2. AddressSanitizer & UndefinedBehaviorSanitizer Sanity Check
-    vim.schedule(function()
-      vim.notify("Step 3/3: Running Sanitizer check (ASan/UBSan)...", vim.log.levels.INFO, { title = "Submit" })
-    end)
-
     local asan_bin = "/tmp/__cph_asan_check"
     local asan_cmd = { "g++", "-O2", "-std=c++17" }
     if vim.fn.executable("mold") == 1 and (vim.uv or vim.loop).os_uname().sysname == "Linux" then
@@ -649,7 +641,7 @@ function M.submit(url, filepath)
     vim.system(asan_cmd, { text = true }, function(asan_comp)
       if asan_comp.code ~= 0 then
         vim.schedule(function()
-          vim.notify("=== SANITIZER COMPILE FAILED: SUBMISSION ABORTED ===\n" .. asan_comp.stderr, vim.log.levels.ERROR, { title = "Submit" })
+          vim.notify("=== SANITIZER COMPILE FAILED: SUBMISSION ABORTED ===\n" .. asan_comp.stderr, vim.log.levels.ERROR, { title = "Submit", timeout = 5000 })
         end)
         return
       end
@@ -691,7 +683,6 @@ function M.submit(url, filepath)
       local function do_submit()
         vim.schedule(function()
           pcall(vim.fn.delete, asan_bin)
-          vim.notify("✅ Sanity check passed! Submitting code...", vim.log.levels.INFO, { title = "Submit" })
 
           local f = io.open(filepath, "r")
           if not f then
@@ -737,21 +728,16 @@ function M.submit(url, filepath)
 
             if platform == "Codeforces" or platform == "CSES" or platform == "AlgoZenith" then
               if platform == "Codeforces" then
-                vim.notify("Opening Codeforces submission in browser via cph-submit...", vim.log.levels.INFO, { title = "Submit" })
+                vim.notify("Opening Codeforces submission in browser via cph-submit...", vim.log.levels.INFO, { title = "Submit", timeout = 2500 })
                 if vim.ui and vim.ui.open then
                   vim.ui.open(url)
                 else
                   vim.system({ "xdg-open", url }, { detach = true })
                 end
-                vim.defer_fn(function()
-                  pcall(function()
-                    require("config.codeforces").watch_submission(nil, nil, nil)
-                  end)
-                end, 100)
               end
             else
               -- AtCoder, CodeChef, LeetCode, and other platforms:
-              vim.notify(string.format("✅ %s: Opening submission page in browser...", platform), vim.log.levels.INFO, { title = "Submit" })
+              vim.notify(string.format("✅ %s: Opening submission page in browser...", platform), vim.log.levels.INFO, { title = "Submit", timeout = 2500 })
               if vim.ui and vim.ui.open then
                 vim.ui.open(url)
               else
@@ -764,16 +750,12 @@ function M.submit(url, filepath)
           if platform == "Codeforces" then
             local cf_cookie = require("config.cf_cookie_submit")
             if cf_cookie.is_cookie_allowed() then
-              vim.notify("🚀 Submitting directly via browser cookies (zero browser overhead)...", vim.log.levels.INFO, { title = "Codeforces Submit" })
+              vim.notify("Submitting solution to Codeforces...", vim.log.levels.INFO, { title = "Codeforces Submit", timeout = 2000 })
               cf_cookie.submit(url, filepath, function(ok, result_or_err)
                 if ok then
-                  local handle = type(result_or_err) == "table" and result_or_err.handle
-                  local c_id = type(result_or_err) == "table" and result_or_err.contest_id
                   local p_idx = type(result_or_err) == "table" and result_or_err.problem_index
-                  vim.notify(string.format("🚀 Submitted headlessly to Codeforces for %s (%s)!\nLive verdict watcher active...", p_idx or "problem", handle or "user"), vim.log.levels.INFO, { title = "Codeforces Submit" })
-                  pcall(function()
-                    require("config.codeforces").watch_submission(handle, c_id, p_idx)
-                  end)
+                  local p_str = p_idx and (" " .. p_idx) or ""
+                  vim.notify(string.format("✅ Codeforces: Problem%s submitted successfully!", p_str), vim.log.levels.INFO, { title = "Codeforces Submit", timeout = 2000 })
                 else
                   if result_or_err == "not_logged_in" then
                     -- User was notified and login page was opened in default browser
@@ -781,10 +763,10 @@ function M.submit(url, filepath)
                   end
                   local bname = (package.loaded["config.cf_cookie_submit"] and package.loaded["config.cf_cookie_submit"].last_detected_browser) or "default browser"
                   if result_or_err == "chromium_keyring_locked" then
-                    vim.notify(string.format("ℹ️ Submitting in %s via cph-submit...", bname), vim.log.levels.INFO, { title = "Codeforces Submit" })
+                    vim.notify(string.format("ℹ️ Submitting in %s via cph-submit...", bname), vim.log.levels.INFO, { title = "Codeforces Submit", timeout = 2500 })
                   else
                     local reason = type(result_or_err) == "string" and result_or_err or "Submission failed"
-                    vim.notify(string.format("⚠️ Headless cookie submit unavailable (%s). Submitting in %s...", reason, bname), vim.log.levels.WARN, { title = "Codeforces Submit" })
+                    vim.notify(string.format("⚠️ Headless cookie submit unavailable (%s). Submitting in %s...", reason, bname), vim.log.levels.WARN, { title = "Codeforces Submit", timeout = 3000 })
                   end
                   fallback_browser_submit()
                 end
@@ -825,7 +807,7 @@ function M.submit(url, filepath)
               pcall(vim.fn.delete, asan_bin)
               M.highlight_asan_errors(filepath, err_output, index)
               local msg = string.format("🚨 SANITIZER ERROR ON SAMPLE TESTCASE #%d: SUBMISSION ABORTED!\n\n%s", index, err_output)
-              vim.notify(msg, vim.log.levels.ERROR, { title = "Submit Aborted" })
+              vim.notify(msg, vim.log.levels.ERROR, { title = "Submit Aborted", timeout = 5000 })
             end)
             return
           end

@@ -253,7 +253,7 @@ function M.run_diagnostics(opts, cur_hash)
   require("config.codeforces").get_handle(function(h)
     if h and h ~= "" then
       results.handle.status = "PASS"
-      results.handle.detail = string.format("%s (Elo HUD & watcher configured)", h)
+      results.handle.detail = string.format("%s (Elo HUD & standings configured)", h)
     else
       results.handle.status = "WARN"
       results.handle.detail = "Not set (press <leader>rl to set)"
