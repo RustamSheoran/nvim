@@ -3,7 +3,7 @@ set -e
 
 # ==============================================================================
 # Ultra-Fast Competitive Programming IDE Setup Script
-# Supported automated platforms: Linux package managers and macOS/Homebrew
+# Supported Platforms: Arch Linux and macOS ONLY
 # ==============================================================================
 
 echo "========================================================"
@@ -16,9 +16,10 @@ TARGET_CONFIG="$HOME/.config/nvim"
 
 if [ "$SCRIPT_DIR" != "$TARGET_CONFIG" ]; then
     if [ -e "$TARGET_CONFIG" ]; then
-        BACKUP_PATH="$HOME/.config/nvim.bak.$(date +%Y%m%d-%H%M%S)"
+        BACKUP_PATH="$HOME/.config/nvim.bak"
         echo "[*] Existing Neovim config detected at $TARGET_CONFIG"
         echo "[*] Moving existing config to $BACKUP_PATH..."
+        rm -rf "$BACKUP_PATH"
         mv "$TARGET_CONFIG" "$BACKUP_PATH"
     fi
     mkdir -p "$HOME/.config"
@@ -35,25 +36,21 @@ fi
 OS="$(uname -s)"
 
 if [ "$OS" = "Linux" ]; then
-    # Verify the Linux environment. Package names are selected per manager.
+    # Verify Linux proc filesystem and Arch Linux pacman
     if [ ! -d "/proc" ]; then
         echo "[!] Error: /proc not found. Unsupported Linux environment."
         exit 1
     fi
 
-    if command -v pacman >/dev/null 2>&1; then
-        echo "[*] Detected Arch Linux environment."
-        sudo pacman -S --noconfirm --needed neovim gcc clang mold nodejs python sqlite curl ripgrep fd ttf-jetbrains-mono-nerd
-    elif command -v apt-get >/dev/null 2>&1; then
-        echo "[*] Detected Debian/Ubuntu-style Linux environment."
-        sudo apt-get install -y neovim g++ clang mold nodejs python3 sqlite3 curl ripgrep fd-find
-    elif command -v dnf >/dev/null 2>&1; then
-        echo "[*] Detected Fedora/RHEL-style Linux environment."
-        sudo dnf install -y neovim gcc-c++ clang mold nodejs python3 sqlite curl ripgrep fd-find
-    else
-        echo "[!] No supported Linux package manager found; skipping package installation."
-        echo "    Install Neovim, a C++ compiler, curl, Python 3, SQLite, ripgrep, and fd manually."
+    if ! command -v pacman >/dev/null 2>&1; then
+        echo "[!] Error: pacman package manager not found."
+        echo "    This setup script is configured for Arch Linux and macOS only."
+        exit 1
     fi
+
+    echo "[*] Detected Arch Linux environment."
+    echo "[*] Installing required packages via pacman (neovim, gcc, clang, mold, nodejs, sqlite, curl, ripgrep, fd, ttf-jetbrains-mono-nerd)..."
+    sudo pacman -S --noconfirm --needed neovim gcc clang mold nodejs sqlite curl ripgrep fd ttf-jetbrains-mono-nerd
 
     # 3. Stack limit increase for Linux (256 MB = 262144 KB)
     echo "[*] Configuring 256 MB stack limit for Arch Linux..."
@@ -115,8 +112,8 @@ elif [ "$OS" = "Darwin" ]; then
         fi
     fi
 
-    echo "[*] Installing required packages via Homebrew (neovim, gcc, llvm, mold, node, python, clang-format, sqlite, curl, ripgrep, fd)..."
-    brew install neovim gcc llvm mold node python clang-format sqlite curl ripgrep fd
+    echo "[*] Installing required packages via Homebrew (neovim, gcc, llvm, mold, node, clang-format, sqlite, curl, ripgrep, fd)..."
+    brew install neovim gcc llvm mold node clang-format sqlite curl ripgrep fd
     echo "[*] Installing JetBrains Mono Nerd Font via Homebrew..."
     brew install --cask font-jetbrains-mono-nerd-font 2>/dev/null || true
 
@@ -208,8 +205,8 @@ elif [ "$OS" = "Darwin" ]; then
     fi
 
 else
-    echo "[!] Unsupported operating system: $OS"
-    echo "    The config files are portable, but setup.sh only automates Linux and macOS."
+    echo "[!] Error: Unsupported operating system: $OS"
+    echo "    This setup script only supports Arch Linux and macOS."
     exit 1
 fi
 

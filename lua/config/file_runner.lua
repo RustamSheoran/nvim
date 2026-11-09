@@ -10,7 +10,7 @@ local M = {}
 function M.execute_with_file(source_file, input_file)
   local dir = vim.fn.fnamemodify(source_file, ":h")
   local output_file = dir .. "/output.txt"
-  local bin_file = vim.fn.tempname() .. "_cp_bin"
+  local bin_file = "/tmp/__file_runner_bin"
 
   local src_name = vim.fn.fnamemodify(source_file, ":t")
   local in_name = vim.fn.fnamemodify(input_file, ":t")
@@ -33,12 +33,12 @@ function M.execute_with_file(source_file, input_file)
       return
     end
 
-    local exec_script = string.format(
-      "ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true; %s < %s > %s",
-      vim.fn.shellescape(bin_file),
-      vim.fn.shellescape(input_file),
-      vim.fn.shellescape(output_file)
-    )
+    local exec_script = string.format([[
+      bash -c '
+        ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
+        "%s" < "%s" > "%s"
+      '
+    ]], bin_file, input_file, output_file)
 
     local start_time = (vim.uv or vim.loop).hrtime()
     vim.system({ "bash", "-c", exec_script }, { text = true }, function(exec_obj)

@@ -2,7 +2,7 @@
 
 A high-performance, keyboard-driven Competitive Programming environment built on top of [LazyVim](https://github.com/LazyVim/LazyVim), GCC 16, C++17 / C++23, mold linker, and a native Lua HTTP server.
 
-This setup replaces the need for VS Code and heavy background processes with a completely native, terminal-based workflow that compiles in **~0.27s** (measured on ancient hardware: 2013 4th-gen Intel Core i5-4430; drops to **~70 to 80 ms** on modern CPUs), automatically fetches testcases from your browser, stress-tests solutions against brute forces, runs optional sanitizer checks, predicts rating changes, and submits through the active browser with a single keystroke.
+This setup replaces the need for VS Code and heavy background processes with a completely native, terminal-based workflow that compiles in **~0.27s** (measured on ancient hardware: 2013 4th-gen Intel Core i5-4430; drops to **~70 to 80 ms** on modern CPUs), automatically fetches testcases from your browser, stress-tests solutions against brute forces, runs Google AddressSanitizer pre-submission diagnostics, monitors live verdicts, predicts rating changes, and submits directly to Codeforces with a single keystroke.
 
 <p align="center">
   <a href="#quick-setup"><b>⚡ Quick Setup</b></a> •
@@ -19,12 +19,13 @@ This setup replaces the need for VS Code and heavy background processes with a c
 
 - **⚡ Blazing Fast Compilation (~0.27s on i5-4430 / ~70-80 ms on Modern CPUs):** Uses GCC 16 Precompiled Headers (`bits/stdc++.h.gch`) and the ultra-fast `mold` linker with `-O2` to drop compile times from ~2.7s down to ~0.27s on ancient hardware (Intel Core i5-4430) and down to **~70 to 80 ms** on modern processors.
 - **🚀 Native CPH Server in Lua:** Built-in HTTP listener on port `27121` that communicates directly with browser extensions. Zero external dependencies.
-- **🌐 Browser Submission (`<leader>rs`):** Sends the saved source to the local CPH server and lets the active browser session handle the Codeforces submission.
+- **🛡️ 3-Step Pre-Submission Protection (`<leader>rs`):** Running `<leader>rs` automatically comments out all active `dbg(...)` statements (without deleting them), verifies syntax (`-fsyntax-only`), and compiles with Google AddressSanitizer (`-fsanitize=address,undefined`) against sample testcases. If a memory bug or undefined behavior is detected, submission is halted immediately and your cursor jumps straight to the offending red line!
 - **📊 Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`):** Native Lua integration displaying live contest standings, solve counts, Carrot rating change predictions (**+24** in green, **-26** in red), next rankup targets (**+239 needed to CM**), celebratory promotion banners (**✨ GUARANTEED CANDIDATE MASTER AFTER THIS CONTEST! CONGRATS! ✨**), Repovive problem difficulty estimations (**~1100\***), and What-If solve projections right inside Neovim.
-- **💬 Discord / Vesktop Presence:** `cord.nvim` publishes the current Neovim activity through Discord IPC when Vesktop or another Discord client is running. It does not start a headless Neovim process or open a network listener.
-- **🛠️ Contest Tools:** Optional local debug, sanitizer, stress-testing, browser submission, and standings workflows are available under `<leader>r`.
+- **👀 Live Submission Verdict Watcher:** Streams real-time Codeforces submission verdicts through every pretest and system test (**In queue** -> **Running on test 14** -> **Accepted**) with zero manual intervention, safe 1.5s sequential polling, 3.5s adaptive backoff, and native OS desktop alerts.
+- **🍪 Zero-Browser Headless Submit (`<leader>rs` / `<leader>rk`):** Non-destructively reads session cookies from your default browser (Chromium, Chrome, Helium, Firefox, Zen, Brave, Floorp, LibreWolf, Waterfox) and submits directly to Codeforces with automatic duplicate code rejection prevention and a global privacy consent toggle.
+- **🩺 Pre-Contest Environment Health Check (`<leader>rh`):** Automated 8-point diagnostics on GCC, mold, Bits PCH, 256 MB stack limit, cookies, handle, and Google sanitizers, running silently in the background on opening `~/cp`.
 - **🏆 Meta Hacker Cup 1-Click File Runner (`<leader>rm` / `<leader>rf`):** Directory isolation preventing overwritten outputs, 1-click Snacks file picker to choose input from `~/Downloads`, automatic `output.txt` generation, and auto-copying output path to clipboard.
-- **🔍 Dedicated Local Debug Runner (`<leader>rx`):** Compiles with `-DLOCAL -DDEBUG` to run all saved testcases, printing variables via `dbg(...)`, wrapping outputs in `------`, and measuring execution time in milliseconds.
+- **🔍 Dedicated Local Debug Runner (`<leader>rd` / `<leader>rx`):** Compiles with `-DLOCAL -DDEBUG` to run all saved testcases, printing variables via `dbg(...)`, wrapping outputs in `------`, and measuring execution time in milliseconds.
 - **💥 Automated Stress Testing (`<leader>rb`):** Auto-generates per-problem brute force (`<stem>_brute.cpp`, pre-filled with your template) and generator (`<stem>_gen.cpp`, with random arrays, permutations, strings, and trees). Halts on the first output mismatch and displays the counterexample.
 - **🐘 256 MB Stack Limit Protection:** Automatically configures a 256 MB stack limit (`ulimit -s 262144`) matching Codeforces and ICPC standards, eliminating artificial segmentation faults on deep tree DFS ($N = 2 \times 10^5$).
 - **🎨 Google C++ Style Guide:** Globally formatted with `clang-format` (`BasedOnStyle: Google`) on save and via `<leader>cf`.
@@ -51,7 +52,7 @@ bash setup.sh
 ```
 
 **What `setup.sh` does automatically:**
-- **Config Backup:** Moves any existing `~/.config/nvim` to a timestamped backup such as `~/.config/nvim.bak.20261107-123456`.
+- **Config Backup:** Moves any existing `~/.config/nvim` to `~/.config/nvim.bak`.
 - **System Detection:** Detects Arch Linux (`pacman`, `/proc`) or macOS (`brew`).
 - **Non-Interactive Package Installation:** Automatically installs compilers and tools (`pacman -S --noconfirm --needed neovim gcc clang mold nodejs` on Arch Linux, or `brew install neovim gcc llvm mold node` on macOS). Only prompts once for `sudo` password if needed.
 - **Stack Limit Expansion:** Permanently writes 256 MB stack limits (`ulimit -s 262144` on Arch Linux, `ulimit -s 65520` on macOS) into `~/.bashrc` and `~/.zshrc`.
@@ -167,7 +168,7 @@ Homebrew GCC includes `<bits/stdc++.h>` out of the box.
 
 ```bash
 # 1. Backup your existing configuration (if any)
-mv ~/.config/nvim ~/.config/nvim.bak.$(date +%Y%m%d-%H%M%S)
+mv ~/.config/nvim ~/.config/nvim.bak
 
 # 2. Clone this repository (HTTPS or SSH)
 git clone https://github.com/RustamSheoran/nvim.git ~/.config/nvim
@@ -250,8 +251,21 @@ To eliminate typing lag and noisy diagnostics:
 
 *(Note: The `<leader>` key is mapped to **Spacebar**)*
 
-### 1. Environment Notes
-The configuration no longer runs automatic health checks. Use the compiler, sanitizer, and stress-test commands directly when needed. The local CPH server listens on `127.0.0.1:27121` for Competitive Companion and cph-submit.
+### 1. Pre-Contest Environment Health Check (`<leader>rh` & Auto on Startup)
+Press `<leader>rh` before any rated round (or open any file inside `~/cp` for an automatic background check) to verify your environment via [`lua/config/cp_health.lua`](lua/config/cp_health.lua):
+1. **GCC Compiler:** Verifies `g++` path and version.
+2. **Mold Fast Linker:** Confirms `mold` is active for fast linking.
+3. **Bits Precompiled Header:** Verifies `<bits/stdc++.h.gch>` exists and loads in ~0.12s.
+4. **Stack Limit:** Confirms your shell has 262,144 KB or unlimited stack for recursion safety.
+5. **CF Cookie Submission:** Checks if default browser cookies are available for headless submit.
+6. **Codeforces Handle:** Confirms handle is set for standings and live watcher.
+7. **Companion Server:** Verifies port 27121 is ready for Competitive Companion.
+8. **Sanitizer Protection:** Validates that `-fsanitize=address,undefined` executes cleanly.
+
+> [!TIP]
+> Opening Neovim in your `~/cp` directory automatically verifies your environment in the background via [`lua/config/autocmds.lua`](lua/config/autocmds.lua) using non-intrusive notifications (never interrupting modal popups). Checks run at most once a week or immediately after a `git pull`. Press `<leader>rh` at any time to open full interactive diagnostics.
+> 
+> Neovim also checks for upstream configuration updates in the background. If a new commit is pushed, you will receive an alert to pull. Run `:CpPull` (or `git pull`) to update and automatically verify your environment.
 
 ### 2. One-Click Problem Fetching
 1. Open Neovim in your `~/cp` directory.
@@ -259,7 +273,7 @@ The configuration no longer runs automatic health checks. Use the compiler, sani
 3. **What happens automatically:**
    - The native Lua HTTP server on port `27121` receives the problem statement.
    - It creates the folder hierarchy: `~/cp/<Judge>/<Contest>/<Problem>.cpp`.
-   - Saves sample inputs and outputs in `<Problem>.testcases` and the problem URL in `<Problem>.url`.
+   - Saves sample inputs, outputs, problem limits, and the URL unified in `<Problem>.meta.json`.
    - Injects the default CP template (`cp_template.cpp`).
    - **Auto-Jump Magic:** Neovim automatically locates `void solve() {`, places your cursor inside with 4-space indentation, and switches into **Insert Mode** so you can start coding your logic immediately.
 
@@ -269,13 +283,12 @@ When a problem is fetched, Neovim creates an organized problem workspace:
 ```text
 ~/cp/Codeforces/Round_1010/
 ├── A.cpp              # Your solution code
-├── A.testcases        # Saved sample and custom testcases (inputs and outputs)
-├── A.url              # Problem URL for browser jump (<CR> / <leader>ru) and submit (<leader>rs)
+├── A.meta.json        # Unified problem metadata: problem URL, time/memory limits, and testcases
 ├── A_brute.cpp        # Auto-generated brute force solution (<leader>rb / <leader>rw)
 └── A_gen.cpp          # Auto-generated random testcase generator (<leader>rb / <leader>rg)
 ```
 
-- **Persistent Testcases:** Custom testcases added with `<leader>ra`, edited with `<leader>re`, or deleted with `<leader>rD` are saved directly into `<Problem>.testcases`. They persist permanently across Neovim sessions.
+- **Persistent Testcases:** Custom testcases added with `<leader>ra`, edited with `<leader>re`, or deleted with `<leader>rd` are saved directly into `<Problem>.meta.json`. They persist permanently across Neovim sessions.
 
 ### 3. On-Demand Algorithm Snippets & Interactive Picker
 Instead of bloating your base template with thousands of lines of unused algorithms, insert algorithms on demand:
@@ -371,7 +384,7 @@ Formatted with `clang-format` enforcing the official **Google C++ Style Guide** 
 - Press `<leader>rr` to run your solution against the sample testcases using `competitest.nvim`.
 - Compiles in **~0.32s** with `g++ -O2 -std=c++17 -fuse-ld=mold`.
 - **Clean Diff View:** Displays inputs, outputs, and expected outputs side by side with green/red status.
-- **Custom Cases:** Press `<leader>ra` to add custom test cases, `<leader>re` to edit, or `<leader>rD` to delete.
+- **Custom Cases:** Press `<leader>ra` to add custom test cases, `<leader>re` to edit, or `<leader>rd` to delete.
 - **Fast Close:** When the CompetiTest window is open, press single key **`q`**, **`Q`**, or **`<Esc>`** to close it instantly.
 
 ### 6. Local Debugging (`<leader>rx`)
@@ -415,14 +428,30 @@ When you are stuck on *"Wrong Answer on test 4"* and sample cases pass:
   - Signed integer overflow and undefined behavior.
 - Prints the **exact line number** of the memory bug in your source code!
 
-### 9. Browser Submission (`<leader>rs`)
-When your solution is ready, save it and press `<leader>rs`. Neovim sends the exact saved source to the local CPH server, opens the problem page, and lets `cph-submit` submit through the active browser session. Debug and sanitizer checks are separate commands.
+### 9. Three-Step Pre-Submission Protection & Red-Line Jump (`<leader>rs`)
+When your solution is ready to submit:
+1. Press `<leader>rs`.
+2. **Step 1: Auto-Comment Debugs:** Automatically finds and comments out all active `dbg(...)` statements (e.g. `// dbg(x);`) in your buffer without deleting them, then saves your file.
+3. **Step 2: Syntax Check:** Runs `g++ -std=c++17 -fsyntax-only`. If there is a typo or missing semicolon, submission aborts immediately.
+4. **Step 3: Sanitizer Sanity Check & Red-Line Jump:** Compiles with `-fsanitize=address,undefined -g` and runs your binary against all saved sample testcases.
+   - If ANY testcase fails (crash, assertion failure, segmentation fault, out-of-bounds memory access, or sanitizer runtime error), **submission is aborted immediately and your code is NEVER submitted to Codeforces or the online judge**.
+   - Neovim displays a clear error alert and jumps your cursor directly to the offending line in your source code with a red highlight, protecting you from an accidental 50-point penalty on Codeforces!
+5. If and only if all pre-submission checks pass cleanly, Neovim transmits the code to the `cph-submit` browser extension, submitting it to Codeforces automatically.
+
+> [!IMPORTANT]
+> **Fail-Safe Submission Lock:**
+> If any testcase fails to execute cleanly or triggers an AddressSanitizer/UBSan violation on sample cases, submission is permanently blocked. Your code will never be sent to the judge until all sample tests execute without errors.
 
 > [!TIP]
-> `<leader>rc` toggles all `dbg(...)` calls: active calls are commented, and commented calls are restored.
+> You can also manually comment or uncomment all `dbg` calls anytime:
+> - `<leader>rc`: Comment all active `dbg(...)` statements in the file.
+> - `<leader>rC`: Uncomment all `dbg(...)` statements in the file.
 
-#### Browser-Based Codeforces Submission (`<leader>rs`)
-Neovim sends the saved source to the local CPH server and opens the Codeforces page in the active browser. `cph-submit` uses the live browser session for login, Cloudflare checks, and submission. Neovim does not read browser cookies, start a headless submission process, or poll verdicts.
+#### Headless 1-Click Codeforces Submission & Privacy Consent (`<leader>rk`)
+Neovim includes a headless direct submission pipeline for Codeforces via [`lua/config/cf_cookie_submit.lua`](lua/config/cf_cookie_submit.lua):
+- **Instant Headless Submission:** Reads session cookies non-destructively from Zen Browser (or Firefox, Floorp, LibreWolf, Waterfox) using SQLite read-only immutable mode. Submits directly via curl with zero browser popup, automatically adds a unique timestamp token to prevent duplicate submission rejection, and streams testcase evaluation automatically in real time.
+- **Automatic Fallback:** If not signed in, Neovim opens `https://codeforces.com/enter` in your browser. If a Cloudflare challenge occurs, Neovim automatically falls back to browser-based submission via `cph-submit`.
+- **Global Privacy Toggle (`<leader>rk`):** If you prefer not to use headless cookie extraction, press `<leader>rk` to disable it globally. When disabled, Neovim will **never** read, touch, or inspect your browser cookies, and will strictly use the browser extension fallback for every submission. Your preference persists permanently across Neovim sessions.
 
 #### Codeforces Submission Language IDs (`cph_server.lua`)
 When submitting with `<leader>rs`, Neovim sends the language ID to `cph-submit`. You can customize `languageId` in `lua/config/cph_server.lua`:
@@ -437,13 +466,28 @@ When submitting with `<leader>rs`, Neovim sends the language ID to `cph-submit`.
 While Codeforces submissions are handled natively via the `cph-submit` extension, `<leader>rs` also fully supports:
 - **AtCoder, CSES, CodeChef, LeetCode, Kattis, SPOJ, and AlgoZenith**
 
-**How it works for non-Codeforces platforms:** The saved source is copied to the clipboard and the problem page opens in the default browser.
+**How it works for non-Codeforces platforms:**
+1. Runs the same 3-step verification (comments debug statements, verifies syntax, and runs Google ASan/UBSan check against sample testcases).
+2. Automatically copies the sanitized, clean code to your system clipboard (`+` and `"` registers).
+3. Automatically opens the problem submission page in your default browser, ready for immediate paste and submit!
 
-### 10. Browser Submission and Discord Presence
-Submission is delegated to `cph-submit` in the active browser. Discord presence is handled separately by `cord.nvim` through Discord IPC; Vesktop must already be running if you want Neovim activity shown there.
+### 10. Automated Live Submission Verdict Watcher
+Whenever you submit a problem using `<leader>rs` (or headless cookie submit), Neovim automatically streams the real-time evaluation verdict with zero manual intervention required:
+- Sequential 1.5-second polling interval with custom browser User-Agent headers, preventing Cloudflare 403 blocks and API rate limits while eliminating contest anxiety.
+- Displays live evaluation states inside Neovim notifications:
+  - **In queue**
+  - **Running on test 1**
+  - **Running on test 14...**
+- Concludes immediately upon final verdict:
+  - **Accepted** (styled in green)
+  - **Wrong answer on test 7** (styled in red)
+  - **Time limit exceeded on test 12**
+  - **Memory limit exceeded on test 3**
+  - **Compilation error**
+- **Native OS Desktop Notification:** When judging completes, Neovim triggers a native desktop notification (`notify-send` on Linux, `osascript` on macOS) for the final verdict (**Accepted** / **Wrong Answer**). Intermediate testcase notifications stay inside Neovim so your desktop is never spammed.
 
-#### Codeforces API Usage
-The standings view fetches Codeforces API data only when requested and caches completed contests locally. Submission verdict polling is intentionally disabled.
+#### Codeforces API Rate Limiting Architecture & Safety Guarantees
+Online judges enforce strict API consumption rules to protect their backend servers during high-volume rated contests. Here is how Codeforces rate limiting functions and how our native watcher guarantees you will never be throttled or banned:
 
 1. **The Token Bucket Algorithm:**
    - Codeforces enforces a Token Bucket rate limiting algorithm with a capacity of **5 tokens** (requests).
@@ -458,15 +502,15 @@ The standings view fetches Codeforces API data only when requested and caches co
 3. **Why Our Watcher Guarantees Zero Rate Limits or Bans:**
    - **Optimized 1000ms Rate-Limit Polling with In-Place Updates:** Initial status check fires in just 50ms for near-instant first testcase feedback. Subsequent polls query as soon as the 1000ms rate-limit window opens, preventing API throttles while updating progress notifications in-place with zero UI delay.
    - **Accurate Elapsed Judging Time Feedback:** Every intermediate testcase notification updates the elapsed judging time in real time (e.g. `⏳ [A] Testcase 4 passed... (Running on test 5) [2.1s elapsed]`) and the final verdict displays the total judging duration (e.g. `🎉 ACCEPTED! Passed 15 testcases in 4.2s`).
-   - **On-demand requests:** The standings view only calls the Codeforces API when opened or manually refreshed.
+   - **3.5s Adaptive Backoff:** If a `Call limit exceeded` response is ever received (for example, if another browser tab, extension, or tool is concurrently accessing the API), the watcher detects it immediately and backs off for **3.5 seconds**. This gives the bucket enough time to regenerate 3 to 4 tokens, fully clearing the Tier 1 throttle before any new request is dispatched and completely preventing Tier 2 Cloudflare WAF bans.
    - **Browser User-Agent Header:** Every query sends a realistic browser User-Agent header, preventing Cloudflare from flagging your requests as unauthenticated bot scrapers.
-   - **No background verdict polling:** Submission verdicts remain in the browser and are not polled by Neovim.
+   - **Zero Contest Anxiety:** You never need to manually refresh standings or submit pages during a round. The watcher operates quietly in the background and delivers an instant OS notification the second your final verdict arrives.
 
 ### 11. Codeforces Standings & Carrot Elo Rating Predictor (`<leader>rl`)
 Press `<leader>rl` while working on any contest problem to open the live Codeforces Contest HUD.
 
 - **Clean Contest Titles & Division Normalization:** Automatically simplifies contest names, stripping extraneous subtitles like `, based on Moscow Open Olympiad in Informatics` and standardizing divisions into clean formats (`Div. 1`, `Div. 2`, `Div. 1 + 2`, `Edu Round ... (Div. 2)`).
-- **Contest Auto-Detection:** Automatically extracts the contest ID from the problem `.url` companion file. If invoked in an independent buffer, prompts for the contest ID.
+- **Contest Auto-Detection:** Automatically extracts the contest ID from the problem `.meta.json` file. If invoked in an independent buffer, prompts for the contest ID.
 - **Configurable Handle:** Remembers your Codeforces handle in `codeforces_handle.txt`. Prompts on first use. Press `s` inside the HUD to change your handle at any time.
 - **Inline Contest Month, Year & Relative Age:** For completed rounds, displays the month, year, and exact calendar age directly on the title line (e.g. `🏆 Codeforces Round 775 (Div. 2) (March 2022, 4y 7m 24d ago)` or `(Today)`), keeping the dashboard minimal and eliminating redundant date lines.
 - **Persistent Disk Caching:** Once contest standings and ratings are fetched for a completed round, they are stored on disk in `~/.cache/nvim/codeforces/contest_<id>.json`. Future opens of finished or past contests load near-instantly in 2 to 5 ms (`[Cached | 'r' to reload]`). Press `r` inside the HUD anytime to force a fresh re-fetch from the Codeforces API.
@@ -523,7 +567,14 @@ Pressing `<leader>rl` opens a floating real-time dashboard:
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 12. Meta Hacker Cup & USACO File Runner (`<leader>rm` / `<leader>rf`)
+### 12. Codeforces Live Contest Timer (`<leader>rT`)
+Press `<leader>rT` anytime during a live contest to view the remaining time and active coding status:
+- **Live Contests (Coding Phase):** Displays remaining contest time with an active ASCII progress bar ticking down every second (**⏳ Time Remaining: 01:23:45 (42% elapsed)**).
+- **Finished Contests:** Displays completed status and points you to live standings via `<leader>rl`.
+- Upcoming contest countdowns have been intentionally removed to keep the interface minimal and focused strictly on the active round.
+- Press `q` or `Esc` to close the floating timer anytime.
+
+### 13. Meta Hacker Cup & USACO File Runner (`<leader>rm` / `<leader>rf`)
 Meta Hacker Cup requires uploading generated `output.txt` files against large official inputs:
 - **Automated Problem Separation:** Meta Hacker Cup problems fetched via Competitive Companion are automatically separated into dedicated directories: `~/cp/MetaHackerCup/<year>/<round>/problem<letter>/<stem>.cpp` via [`lua/plugins/competitest.lua`](lua/plugins/competitest.lua) and [`lua/config/cph_server.lua`](lua/config/cph_server.lua). This guarantees that `output.txt` for Problem B will never overwrite `output.txt` from Problem A.
 - **1-Click File Picker & Shell Redirection (`<leader>rm` / `<leader>rf`):** Press `<leader>rm` (or `<leader>rf`) to open your `~/Downloads` folder directly in Snacks file picker via [`lua/config/file_runner.lua`](lua/config/file_runner.lua). Select any downloaded input file and hit `<Enter>`:
@@ -573,18 +624,22 @@ GitHub Copilot is integrated with native inline ghost text across all programmin
 | Keymap | Action | Description |
 |---|---|---|
 | `<leader>rr` | **Run Testcases** | Compiles in ~0.32s and runs sample cases (press `q` to close) |
-| `<leader>rx` | **Run Local Debug** | Runs testcases with `dbg(...)`, `------`, and Chrono timing |
+| `<leader>rd` / `<leader>rx` | **Run Local Debug** | Runs testcases with `dbg(...)`, `------`, and Chrono timing |
 | `<leader>rb` | **Stress Test** | Automated loop (solution vs brute) until mismatch found |
-| `<leader>rw` | **Open Brute** | Creates/opens problem brute force (`<stem>_brute.cpp`) |
-| `<leader>rg` | **Open Gen** | Creates/opens random-test generator (`<stem>_gen.cpp`) |
+| `<leader>rB` | **Open Brute** | Opens problem brute force (`<stem>_brute.cpp`) in a vertical split |
+| `<leader>rG` | **Open Gen** | Opens problem generator (`<stem>_gen.cpp`) in a vertical split |
 | `<leader>rz` | **Run Sanitizer** | Catches segfaults & out-of-bounds with exact line numbers |
 | `<leader>ru` | **Open Problem URL** | Opens Codeforces problem statement in browser |
 | `<leader>ra` | **Add Testcase** | Add a custom test case |
 | `<leader>re` | **Edit Testcase** | Edit existing sample test cases |
 | `<leader>rD` | **Delete Testcase** | Delete a testcase |
-| `<leader>rs` | **Submit** | Submit the saved source through the active browser and cph-submit |
+| `<leader>rs` | **Submit** | 3-step verification (comment dbg, syntax, ASan red-line jump) & submit |
 | `<leader>rl` | **CF Standings & Predictor** | Live contest standings, Carrot rating prediction, and Repovive difficulty |
-| `<leader>rc` | **Toggle Debugs** | Comments active `dbg(...)` calls or uncomments them when already commented |
+| `<leader>rc` | **Comment Debugs** | Comments out all active `dbg(...)` calls in the buffer |
+| `<leader>rC` | **Uncomment Debugs** | Uncomments all `dbg(...)` calls in the buffer |
+| `<leader>rk` | **Toggle Headless Submit** | Global privacy consent toggle (headless cookie submit vs browser fallback) |
+| `<leader>rh` | **Health Check** | Pre-contest environment diagnostics (runs automatically when opening ~/cp) |
+| `<leader>rT` | **Live Contest Timer** | Live Codeforces contest timer & ticking countdown HUD |
 | `<leader>rm` / `<leader>rf` | **Meta Input Runner** | Pick input file from ~/Downloads, run with redirection, and auto-create output.txt |
 | `<leader>rt` / `rt` | **Algorithm Picker** | Browse and insert CP algorithm snippets with live preview |
 | `<leader>tc` | **Toggle Copilot** | Instantly enable/disable Copilot for contest rules |

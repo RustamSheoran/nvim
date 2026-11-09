@@ -12,11 +12,28 @@ function M.run()
 
   local dir = vim.fn.fnamemodify(file, ":h")
   local sol_name = vim.fn.fnamemodify(file, ":t")
-  local tc_file = vim.fn.fnamemodify(file, ":r") .. ".testcases"
+  local stem = vim.fn.fnamemodify(file, ":r")
+  local meta_file = stem .. ".meta.json"
+  local tc_file = stem .. ".testcases"
 
-  -- Collect testcases if available
+  -- Collect testcases if available (unified .meta.json or legacy .testcases)
   local tc_list = {}
-  if vim.fn.filereadable(tc_file) == 1 then
+  if vim.fn.filereadable(meta_file) == 1 then
+    pcall(function()
+      local lines = vim.fn.readfile(meta_file)
+      local ok_dec, data = pcall(vim.json.decode, table.concat(lines, "\n"))
+      if ok_dec and type(data) == "table" and data.tests then
+        for _, t in ipairs(data.tests) do
+          if t.input and t.input ~= "" then
+            table.insert(tc_list, {
+              input = t.input,
+              output = t.output or "",
+            })
+          end
+        end
+      end
+    end)
+  elseif vim.fn.filereadable(tc_file) == 1 then
     pcall(function()
       local tctbl = require("competitest.testcases").single_file.load(tc_file)
       local keys = {}
@@ -83,7 +100,7 @@ echo ""
   local debug_cmd = ""
   if #tc_list > 0 then
     debug_cmd = string.format([[
-cd %s && bash -c '
+cd '%s' && bash -c '
 ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
 echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG) ===\033[0m"
 g++ -O2 -std=c++17 %s-DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
@@ -100,10 +117,10 @@ if [ "$choice" = "i" ] || [ "$choice" = "I" ]; then
     read -p "Process exited. Press Enter to close window..." dummy
 fi
 '
-]], vim.fn.shellescape(dir), sol_name, mold_flag, sol_name, run_cases_bash, #tc_list)
+]], dir, sol_name, mold_flag, sol_name, run_cases_bash, #tc_list)
   else
     debug_cmd = string.format([[
-cd %s && bash -c '
+cd '%s' && bash -c '
 ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
 echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG) ===\033[0m"
 g++ -O2 -std=c++17 %s-DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
@@ -114,11 +131,8 @@ echo -e "\033[0;36mType / paste input and press Enter (Ctrl+D for EOF, Ctrl+C to
 echo ""
 read -p "Process exited. Press Enter to close window..." dummy
 '
-]], vim.fn.shellescape(dir), sol_name, mold_flag, sol_name)
+]], dir, sol_name, mold_flag, sol_name)
   end
-
-  local debug_name = ".nvim_debug_" .. vim.fn.fnamemodify(vim.fn.tempname(), ":t")
-  debug_cmd = debug_cmd:gsub("__debug([^_%w])", debug_name .. "%1")
 
   if Snacks and Snacks.terminal then
     Snacks.terminal.open(debug_cmd, {

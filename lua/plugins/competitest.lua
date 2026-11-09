@@ -88,26 +88,37 @@ return {
   dependencies = "MunifTanjim/nui.nvim",
   lazy = false,
   opts = {
+    companion_port = 65222,
     received_problems_prompt_path = false,
     received_contests_prompt_directory = false,
     received_contests_prompt_extension = false,
 
-    -- Auto-save URL to a companion .url file when fetched via browser extension
+    -- Auto-save metadata to companion .meta.json when fetched via browser extension
     received_problems_path = function(task, file_extension)
       local target_path = get_problem_target_path(task, file_extension)
 
-      if task.url and task.url ~= "" then
-        local dir = vim.fn.fnamemodify(target_path, ":h")
-        vim.fn.mkdir(dir, "p")
-        local url_file = vim.fn.fnamemodify(target_path, ":r") .. ".url"
-        vim.fn.writefile({ task.url }, url_file, "b")
-        vim.fn.writefile({ vim.json.encode({ url = task.url, judge = task.judge, group = task.group, name = task.name }) }, vim.fn.fnamemodify(target_path, ":r") .. ".meta.json", "b")
-      end
+      local dir = vim.fn.fnamemodify(target_path, ":h")
+      pcall(vim.fn.mkdir, dir, "p")
+
+      local stem = vim.fn.fnamemodify(target_path, ":r")
+      local meta_file = stem .. ".meta.json"
+      local judge, contest = detect_judge_and_contest(task)
+      local meta_data = {
+        name = task.name or "problem",
+        group = task.group or contest,
+        url = task.url or "",
+        judge = judge,
+        timeLimit = task.timeLimit,
+        memoryLimit = task.memoryLimit,
+        tests = task.tests or {},
+      }
+      pcall(vim.fn.writefile, { vim.json.encode(meta_data) }, meta_file, "b")
 
       return target_path
     end,
 
     testcases_use_single_file = true,
+    testcases_single_file_format = "$(FNOEXT).meta.json",
     template_file = {
       cpp = vim.fn.expand("~/.config/nvim/templates/cp_template.cpp"),
     },
@@ -129,6 +140,76 @@ return {
     },
   },
   config = function(_, opts)
+    local utils = require("competitest.utils")
+    local tc = require("competitest.testcases")
+
+    local orig_load = tc.single_file.load
+    local orig_write = tc.single_file.write
+
+    -- Unified testcases adapter: seamlessly read/write testcases directly from .meta.json
+    tc.single_file.load = function(filepath)
+      local meta_path = filepath:match("%.meta%.json$") and filepath or filepath:gsub("%.testcases$", ".meta.json")
+      local path_to_read = vim.fn.filereadable(meta_path) == 1 and meta_path or filepath
+      if vim.fn.filereadable(path_to_read) == 1 then
+        local raw = utils.load_file_as_string(path_to_read)
+        if raw and raw:match("^%s*{") then
+          local ok, data = pcall(vim.json.decode, raw)
+          if ok and type(data) == "table" and data.tests then
+            local tctbl = {}
+            for i, test in ipairs(data.tests) do
+              tctbl[i - 1] = {
+                input = test.input or "",
+                output = test.output or "",
+              }
+            end
+            return tctbl
+          end
+        end
+      end
+      return orig_load(filepath)
+    end
+
+    tc.single_file.write = function(filepath, tctbl)
+      local meta_path = filepath:match("%.meta%.json$") and filepath or filepath:gsub("%.testcases$", ".meta.json")
+      local target_file = (vim.fn.filereadable(meta_path) == 1 or filepath:match("%.meta%.json$")) and meta_path or filepath
+      if target_file:match("%.meta%.json$") then
+        local data = {}
+        if vim.fn.filereadable(target_file) == 1 then
+          local raw = utils.load_file_as_string(target_file)
+          if raw then
+            local ok, dec = pcall(vim.json.decode, raw)
+            if ok and type(dec) == "table" then
+              data = dec
+            end
+          end
+        end
+
+        local tests = {}
+        local keys = {}
+        for k, v in pairs(tctbl) do
+          if (v.input and v.input ~= "") or (v.output and v.output ~= "") then
+            table.insert(keys, k)
+          end
+        end
+        table.sort(keys)
+        for _, k in ipairs(keys) do
+          local item = tctbl[k]
+          table.insert(tests, {
+            input = item.input or "",
+            output = item.output or "",
+          })
+        end
+        data.tests = tests
+
+        local ok_enc, encoded = pcall(vim.json.encode, data)
+        if ok_enc and encoded then
+          pcall(vim.fn.writefile, { encoded }, target_file, "b")
+          return
+        end
+      end
+      orig_write(filepath, tctbl)
+    end
+
     require("competitest").setup(opts)
     -- Start the CPH submit polling server
     require("config.cph_server").start()
@@ -137,7 +218,7 @@ return {
     { "<leader>rr", "<cmd>CompetiTest run<cr>", desc = "Run Testcases" },
     { "<leader>ra", "<cmd>CompetiTest add_testcase<cr>", desc = "Add Testcase" },
     { "<leader>re", "<cmd>CompetiTest edit_testcase<cr>", desc = "Edit Testcase" },
-    { "<leader>rD", "<cmd>CompetiTest delete_testcase<cr>", desc = "Delete Testcase" },
+    { "<leader>rd", "<cmd>CompetiTest delete_testcase<cr>", desc = "Delete Testcase" },
     {
       "<leader>rx",
       function()
@@ -169,15 +250,30 @@ return {
     {
       "<leader>ru",
       function()
-        local url_file = vim.fn.expand("%:p:r") .. ".url"
-        if vim.fn.filereadable(url_file) == 1 then
-          local lines = vim.fn.readfile(url_file)
-          if #lines > 0 and lines[1]:match("^https?://") then
-            vim.ui.open(lines[1])
-            return
+        local stem = vim.fn.expand("%:p:r")
+        local meta_file = stem .. ".meta.json"
+        local url = nil
+        if vim.fn.filereadable(meta_file) == 1 then
+          local lines = vim.fn.readfile(meta_file)
+          local ok_dec, data = pcall(vim.json.decode, table.concat(lines, "\n"))
+          if ok_dec and type(data) == "table" and data.url and data.url:match("^https?://") then
+            url = data.url
           end
         end
-        vim.notify("No .url file found for this problem!", vim.log.levels.WARN)
+        if not url then
+          local url_file = stem .. ".url"
+          if vim.fn.filereadable(url_file) == 1 then
+            local lines = vim.fn.readfile(url_file)
+            if #lines > 0 and lines[1]:match("^https?://") then
+              url = vim.trim(lines[1])
+            end
+          end
+        end
+        if url then
+          vim.ui.open(url)
+          return
+        end
+        vim.notify("No problem URL found for this problem!", vim.log.levels.WARN)
       end,
       desc = "Open problem URL in browser",
     },
@@ -224,7 +320,9 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
       function()
         vim.cmd("silent! write")
         local filepath = vim.fn.expand("%:p")
-        local url_file = vim.fn.expand("%:p:r") .. ".url"
+        local stem = vim.fn.expand("%:p:r")
+        local meta_file = stem .. ".meta.json"
+        local url_file = stem .. ".url"
 
         local function submit(url)
           if not url or url == "" then
@@ -234,7 +332,17 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
           require("config.cph_server").submit(url, filepath)
         end
 
-        -- 1. Check companion .url file
+        -- 1. Check companion .meta.json file
+        if vim.fn.filereadable(meta_file) == 1 then
+          local lines = vim.fn.readfile(meta_file)
+          local ok_dec, data = pcall(vim.json.decode, table.concat(lines, "\n"))
+          if ok_dec and type(data) == "table" and data.url and data.url:match("^https?://") then
+            submit(vim.trim(data.url))
+            return
+          end
+        end
+
+        -- 2. Check legacy companion .url file
         if vim.fn.filereadable(url_file) == 1 then
           local lines = vim.fn.readfile(url_file)
           if #lines > 0 and lines[1]:match("^https?://") then
@@ -243,26 +351,45 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
           end
         end
 
-        -- 2. Check the first 10 lines of the buffer
+        -- 3. Check the first 10 lines of the buffer
         local lines = vim.api.nvim_buf_get_lines(0, 0, 10, false)
         for _, line in ipairs(lines) do
           local match = line:match("(https?://[%w-_%.%?%.:/%+=&#]+)")
           if match then
-            vim.fn.writefile({ match }, url_file)
+            local mdata = { url = match }
+            if vim.fn.filereadable(meta_file) == 1 then
+              local ml = vim.fn.readfile(meta_file)
+              local ok_dec, d = pcall(vim.json.decode, table.concat(ml, "\n"))
+              if ok_dec and type(d) == "table" then
+                mdata = d
+                mdata.url = match
+              end
+            end
+            pcall(vim.fn.writefile, { vim.json.encode(mdata) }, meta_file, "b")
             submit(match)
             return
           end
         end
 
-        -- 3. Prompt if no URL was stored previously
+        -- 4. Prompt if no URL was stored previously
         vim.ui.input({ prompt = "Enter Problem URL: " }, function(input)
           if input and input ~= "" then
-            vim.fn.writefile({ vim.trim(input) }, url_file)
-            submit(vim.trim(input))
+            local clean_url = vim.trim(input)
+            local mdata = { url = clean_url }
+            if vim.fn.filereadable(meta_file) == 1 then
+              local ml = vim.fn.readfile(meta_file)
+              local ok_dec, d = pcall(vim.json.decode, table.concat(ml, "\n"))
+              if ok_dec and type(d) == "table" then
+                mdata = d
+                mdata.url = clean_url
+              end
+            end
+            pcall(vim.fn.writefile, { vim.json.encode(mdata) }, meta_file, "b")
+            submit(clean_url)
           end
         end)
       end,
-      desc = "Submit saved solution",
+      desc = "Verify compilation, comment dbg, and submit via cph-submit",
     },
     {
       "<leader>rl",
@@ -278,14 +405,21 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
         local count = require("config.cph_server").toggle_dbg(filepath)
         vim.notify(string.format("Toggled %d dbg statement(s)", count), vim.log.levels.INFO, { title = "Debug" })
       end,
-      desc = "Toggle all dbg statements",
+      desc = "Toggle all dbg statements in buffer",
     },
     {
-      "<leader>rm",
+      "<leader>rk",
       function()
-        require("config.file_runner").run()
+        require("config.cf_cookie_submit").toggle_cookie_allowed()
       end,
-      desc = "Meta Input: Pick file from ~/Downloads & run with redirection",
+      desc = "Toggle Headless Cookie Submit (Global Privacy Consent)",
+    },
+    {
+      "<leader>rh",
+      function()
+        require("config.cp_health").check()
+      end,
+      desc = "Pre-Contest Environment Health Check (GCC, Mold, PCH, Stack)",
     },
     {
       "<leader>rf",
