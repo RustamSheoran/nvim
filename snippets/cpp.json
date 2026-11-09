@@ -2822,5 +2822,214 @@
       "i128 ${1:x};"
     ],
     "description": "using i128 = __int128_t"
+  },
+  "Pascal Triangle (nCr 2D Table)": {
+    "prefix": [
+      "pascal",
+      "ncr_pascal",
+      "ncr2d"
+    ],
+    "body": [
+      "const int MAX_PASCAL = ;",
+      "vvll C(MAX_PASCAL + 1, vll(MAX_PASCAL + 1, 0));",
+      "",
+      "void precompute_pascal(int n = MAX_PASCAL, ll m = ) {",
+      "    rep(i, n + 1) {",
+      "        C[i][0] = 1;",
+      "        rep1(j, i) {",
+      "            C[i][j] = (C[i - 1][j - 1] + C[i - 1][j]) % m;",
+      "        }",
+      "    }",
+      "}"
+    ],
+    "description": "O(N^2) Pascal triangle table for nCr lookup (works for arbitrary non-prime or no modulo)"
+  },
+  "Lucas Theorem (nCr modulo small prime)": {
+    "prefix": [
+      "lucas",
+      "ncr_lucas"
+    ],
+    "body": [
+      "// O(P + log_P(N)) Lucas Theorem for nCr mod P when N, R <= 10^18 and P is small prime <= 10^5",
+      "ll nCr_lucas(ll n, ll r, ll p) {",
+      "    if (r < 0 || r > n) return 0;",
+      "    if (r == 0 || n == r) return 1;",
+      "    auto nCr_small_p = [&](ll a, ll b) -> ll {",
+      "        if (b < 0 || b > a) return 0;",
+      "        ll num = 1, den = 1;",
+      "        rep1(i, b) {",
+      "            num = num * (a - i + 1) % p;",
+      "            den = den * i % p;",
+      "        }",
+      "        auto power = [&](ll base, ll exp) -> ll {",
+      "            ll res = 1; base %= p;",
+      "            while (exp > 0) {",
+      "                if (exp & 1) res = res * base % p;",
+      "                base = base * base % p;",
+      "                exp >>= 1;",
+      "            }",
+      "            return res;",
+      "        };",
+      "        return num * power(den, p - 2) % p;",
+      "    };",
+      "    ll res = 1;",
+      "    while (n > 0 || r > 0) {",
+      "        ll ni = n % p, ri = r % p;",
+      "        if (ri > ni) return 0;",
+      "        res = res * nCr_small_p(ni, ri) % p;",
+      "        n /= p;",
+      "        r /= p;",
+      "    }",
+      "    return res;",
+      "}"
+    ],
+    "description": "Lucas Theorem for nCr mod P when N, R <= 10^18 and P is a small prime <= 10^5"
+  },
+  "nCr Lambda (Quick Inline Calculation)": {
+    "prefix": [
+      "ncr",
+      "ncrl",
+      "ncr_lambda"
+    ],
+    "body": [
+      "auto nCr = [&](ll n, ll r) -> ll {",
+      "    if (r < 0 || r > n) return 0;",
+      "    if (r > n - r) r = n - r;",
+      "    ll res = 1;",
+      "    rep1(i, r) res = res * (n - i + 1) / i;",
+      "    return res;",
+      "};"
+    ],
+    "description": "Quick 5-line inline lambda for nCr without modulo (O(R), avoids 64-bit overflow)"
+  },
+  "nCr Modulo Lambda (Single Query Modulo MOD)": {
+    "prefix": [
+      "ncrmod",
+      "ncrm",
+      "ncr_mod"
+    ],
+    "body": [
+      "auto nCr_mod = [&](ll n, ll r, ll m = ) -> ll {",
+      "    if (r < 0 || r > n) return 0;",
+      "    if (r > n - r) r = n - r;",
+      "    ll num = 1, den = 1;",
+      "    rep1(i, r) {",
+      "        num = (i128)num * ((n - i + 1) % m) % m;",
+      "        den = (i128)den * i % m;",
+      "    }",
+      "    auto power = [&](ll a, ll b) -> ll {",
+      "        ll res = 1; a %= m;",
+      "        while (b > 0) {",
+      "            if (b & 1) res = (i128)res * a % m;",
+      "            a = (i128)a * a % m;",
+      "            b >>= 1;",
+      "        }",
+      "        return res;",
+      "    };",
+      "    return (i128)num * power(den, m - 2) % m;",
+      "};"
+    ],
+    "description": "Quick single-query lambda for nCr modulo prime MOD in O(R log MOD) without precomputed tables"
+  },
+  "Factorial (Lambda with Modulo)": {
+    "prefix": [
+      "fact",
+      "factorial",
+      "factl"
+    ],
+    "body": [
+      "auto fact = [&](ll n, ll m = ) -> ll {",
+      "    ll res = 1;",
+      "    rep1(i, n) res = (i128)res * i % m;",
+      "    return res;",
+      "};"
+    ],
+    "description": "Quick 4-line inline lambda for n! modulo MOD"
+  },
+  "Factorial Small (No Modulo)": {
+    "prefix": [
+      "fact_small",
+      "fact_int"
+    ],
+    "body": [
+      "auto fact = [&](ll n) -> ll {",
+      "    ll res = 1;",
+      "    rep1(i, n) res *= i;",
+      "    return res;",
+      "};"
+    ],
+    "description": "Quick inline lambda for n! without modulo (for N <= 20)"
+  },
+  "Factorial Precomputed Array": {
+    "prefix": [
+      "fact_array",
+      "fact_table",
+      "fact_precompute"
+    ],
+    "body": [
+      "const int MAX_FACT = ;",
+      "vll fact(MAX_FACT + 1);",
+      "fact[0] = 1;",
+      "rep1(i, MAX_FACT) fact[i] = (i128)fact[i - 1] * i % ;"
+    ],
+    "description": "O(N) precomputed factorials array up to MAX_FACT modulo MOD"
+  },
+  "Combinatorics Struct (O(N) Precomputed Factorials & Inverses for O(1) Queries)": {
+    "prefix": [
+      "comb",
+      "combinatorics",
+      "ncr_struct",
+      "ncr_all",
+      "binomial"
+    ],
+    "body": [
+      "struct Combinatorics {",
+      "    int n;",
+      "    ll mod;",
+      "    vll fact, inv_fact;",
+      "",
+      "    ll power(ll a, ll b) const {",
+      "        ll res = 1; a %= mod;",
+      "        while (b > 0) {",
+      "            if (b & 1) res = (i128)res * a % mod;",
+      "            a = (i128)a * a % mod;",
+      "            b >>= 1;",
+      "        }",
+      "        return res;",
+      "    }",
+      "",
+      "    ll inv(ll a) const { return power(a, mod - 2); }",
+      "",
+      "    void init(int n_, ll m_ = 1e9 + 7) {",
+      "        n = n_;",
+      "        mod = m_;",
+      "        fact.assign(n + 1, 1);",
+      "        inv_fact.assign(n + 1, 1);",
+      "        rep1(i, n) fact[i] = (i128)fact[i - 1] * i % mod;",
+      "        inv_fact[n] = inv(fact[n]);",
+      "        roff(i, 0, n - 1) inv_fact[i] = (i128)inv_fact[i + 1] * (i + 1) % mod;",
+      "    }",
+      "",
+      "    Combinatorics(int n_ = 0, ll m_ = 1e9 + 7) {",
+      "        if (n_ > 0) init(n_, m_);",
+      "    }",
+      "",
+      "    ll nCr(int n, int r) const {",
+      "        if (r < 0 || r > n) return 0;",
+      "        return (i128)fact[n] * inv_fact[r] % mod * inv_fact[n - r] % mod;",
+      "    }",
+      "",
+      "    ll nPr(int n, int r) const {",
+      "        if (r < 0 || r > n) return 0;",
+      "        return (i128)fact[n] * inv_fact[n - r] % mod;",
+      "    }",
+      "",
+      "    ll catalan(int n) const {",
+      "        if (n < 0) return 0;",
+      "        return (i128)nCr(2 * n, n) * inv(n + 1) % mod;",
+      "    }",
+      "};"
+    ],
+    "description": "Full O(N) precomputed factorials and inverse factorials struct for O(1) nCr, nPr, Catalan modulo MOD"
   }
 }

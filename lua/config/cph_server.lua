@@ -93,19 +93,19 @@ function M.get_platform_language_id(platform, lang)
   lang = lang or "cpp"
   local mapping = {
     Codeforces = {
-      cpp = "91", -- GNU G++23 14.2 (64 bit, msys2)
-      c = "43", -- GNU GCC C11 5.1.0
-      python = "70", -- Python 3.8.10
-      pypy = "71", -- PyPy 3.7
-      rust = "75", -- Rust 1.75.0
-      java = "87", -- Java 21
+      cpp = 91, -- GNU G++23 14.2 (64 bit, msys2)
+      c = 43, -- GNU GCC C11 5.1.0
+      python = 70, -- Python 3.8.10
+      pypy = 71, -- PyPy 3.7
+      rust = 75, -- Rust 1.75.0
+      java = 87, -- Java 21
     },
     AtCoder = {
-      cpp = "5001", -- C++ 23 (gcc 12.2) [4003 for legacy contests]
-      c = "5004", -- C (gcc 12.2)
-      python = "5017", -- Python (PyPy 3.10)
-      rust = "5018", -- Rust (rustc 1.70.0)
-      java = "5021", -- Java (OpenJDK 17)
+      cpp = 5001, -- C++ 23 (gcc 12.2) [4003 for legacy contests]
+      c = 5004, -- C (gcc 12.2)
+      python = 5017, -- Python (PyPy 3.10)
+      rust = 5018, -- Rust (rustc 1.70.0)
+      java = 5021, -- Java (OpenJDK 17)
     },
     CodeChef = {
       cpp = "CPP17",
@@ -725,9 +725,9 @@ function M.submit(url, filepath)
             local payload_tbl = {
               empty = false,
               url = url,
-              problemName = "",
+              problemName = vim.fn.fnamemodify(filepath, ":t:r"),
               platform = platform,
-              languageId = M.get_platform_language_id(platform),
+              languageId = tonumber(M.get_platform_language_id(platform)) or M.get_platform_language_id(platform),
               sourceCode = source_code,
             }
 
@@ -770,7 +770,7 @@ function M.submit(url, filepath)
                   local handle = type(result_or_err) == "table" and result_or_err.handle
                   local c_id = type(result_or_err) == "table" and result_or_err.contest_id
                   local p_idx = type(result_or_err) == "table" and result_or_err.problem_index
-                  vim.notify(string.format("✅ Codeforces submission sent for %s (%s)! Watching verdict...", p_idx or "problem", handle or "user"), vim.log.levels.INFO, { title = "Codeforces Submit" })
+                  vim.notify(string.format("🚀 Submitted headlessly to Codeforces for %s (%s)!\nLive verdict watcher active...", p_idx or "problem", handle or "user"), vim.log.levels.INFO, { title = "Codeforces Submit" })
                   pcall(function()
                     require("config.codeforces").watch_submission(handle, c_id, p_idx)
                   end)

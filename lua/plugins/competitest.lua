@@ -213,6 +213,22 @@ return {
     require("competitest").setup(opts)
     -- Start the CPH submit polling server
     require("config.cph_server").start()
+
+    -- Keymap 's' inside CompetiTest runner UI to submit solution directly
+    vim.api.nvim_create_autocmd("FileType", {
+      pattern = "CompetiTest",
+      callback = function(ev)
+        vim.keymap.set("n", "s", function()
+          local ok_sub, runner = pcall(require, "competitest.runner")
+          if ok_sub and runner and runner.current_runner then
+            pcall(function() runner.current_runner:hide_ui() end)
+          end
+          vim.schedule(function()
+            vim.cmd("normal! <leader>rs")
+          end)
+        end, { buffer = ev.buf, desc = "Submit solution directly from CompetiTest runner" })
+      end,
+    })
   end,
   keys = {
     { "<leader>rr", "<cmd>CompetiTest run<cr>", desc = "Run Testcases" },
@@ -318,9 +334,37 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
     {
       "<leader>rs",
       function()
-        vim.cmd("silent! write")
-        local filepath = vim.fn.expand("%:p")
-        local stem = vim.fn.expand("%:p:r")
+        -- Robust C++ target file discovery (works from CompetiTest UI, splits, or normal buffers)
+        local function resolve_target_file()
+          local cur = vim.api.nvim_buf_get_name(0)
+          if cur:match("%.cpp$") and vim.fn.filereadable(cur) == 1 then
+            return cur
+          end
+          for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+            if vim.api.nvim_buf_is_loaded(buf) then
+              local name = vim.api.nvim_buf_get_name(buf)
+              if name:match("%.cpp$") and vim.fn.filereadable(name) == 1 and not name:match("_gen%.cpp$") and not name:match("_brute%.cpp$") then
+                return name
+              end
+            end
+          end
+          return cur
+        end
+
+        local filepath = resolve_target_file()
+        if not filepath or filepath == "" or vim.fn.filereadable(filepath) ~= 1 then
+          vim.notify("Submit cancelled: no active C++ solution file found", vim.log.levels.WARN, { title = "Submit" })
+          return
+        end
+
+        local bufnr = vim.fn.bufnr(filepath)
+        if bufnr ~= -1 and vim.api.nvim_buf_is_valid(bufnr) then
+          pcall(vim.api.nvim_buf_call, bufnr, function()
+            vim.cmd("silent! write")
+          end)
+        end
+
+        local stem = vim.fn.fnamemodify(filepath, ":r")
         local meta_file = stem .. ".meta.json"
         local url_file = stem .. ".url"
 
@@ -351,8 +395,8 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
           end
         end
 
-        -- 3. Check the first 10 lines of the buffer
-        local lines = vim.api.nvim_buf_get_lines(0, 0, 10, false)
+        -- 3. Check the first 15 lines of the source file
+        local lines = vim.fn.readfile(filepath, "", 15)
         for _, line in ipairs(lines) do
           local match = line:match("(https?://[%w-_%.%?%.:/%+=&#]+)")
           if match then
