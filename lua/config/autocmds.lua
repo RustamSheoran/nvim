@@ -231,7 +231,7 @@ vim.api.nvim_create_autocmd({ "VimEnter", "BufEnter" }, {
 -- Also trigger immediately if autocmds was loaded after VimEnter / initial BufEnter
 try_check()
 
--- Ensure CPH server is started on ports 65222 and 27121 regardless of working directory
+-- Ensure CPH server is started on ports 27121 and 10043 regardless of working directory
 pcall(function()
   require("config.cph_server").start()
 end)

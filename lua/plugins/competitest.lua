@@ -88,7 +88,7 @@ return {
   dependencies = "MunifTanjim/nui.nvim",
   lazy = false,
   opts = {
-    companion_port = 65222,
+    companion_port = 27121,
     received_problems_prompt_path = false,
     received_contests_prompt_directory = false,
     received_contests_prompt_extension = false,
@@ -232,6 +232,7 @@ return {
   end,
   keys = {
     { "<leader>rr", "<cmd>CompetiTest run<cr>", desc = "Run Testcases" },
+    { "<leader>rp", "<cmd>Cp claim<cr>", desc = "Claim Problem Receiver Server" },
     { "<leader>ra", "<cmd>CompetiTest add_testcase<cr>", desc = "Add Testcase" },
     { "<leader>re", "<cmd>CompetiTest edit_testcase<cr>", desc = "Edit Testcase" },
     { "<leader>rd", "<cmd>CompetiTest delete_testcase<cr>", desc = "Delete Testcase" },

@@ -4,7 +4,30 @@ local server = nil
 local servers = {}
 local current_payload = nil
 local current_payload_platform = nil
-local PORTS = { 65222, 27121, 10043 }
+local PORTS = { 27121, 10043 }
+local recent_tasks = {}
+local DEDUPE_WINDOW_MS = 2500
+
+local function is_duplicate_task(task)
+  if not task then return false end
+  local id = string.format("%s|%s|%s", task.url or "", task.name or "", task.group or "")
+  if id == "||" then return false end
+
+  local now = uv.now()
+  for k, ts in pairs(recent_tasks) do
+    if now - ts > 10000 then
+      recent_tasks[k] = nil
+    end
+  end
+
+  local last_ts = recent_tasks[id]
+  if last_ts and (now - last_ts) < DEDUPE_WINDOW_MS then
+    return true
+  end
+
+  recent_tasks[id] = now
+  return false
+end
 
 function M.detect_judge_and_contest(task)
   local url = task.url or ""
@@ -251,7 +274,7 @@ function M.receive_task(task)
     autocmds.position_at_solve(target_buf, 0, is_new_file)
   end
 
-  vim.notify("Received problem: " .. (task.name or "problem"), vim.log.levels.INFO)
+  vim.notify("Received problem: " .. (task.name or "problem"), vim.log.levels.INFO, { title = "CP Receiver", timeout = 1000 })
   return target_path
 end
 
@@ -316,9 +339,11 @@ local function handle_client(client)
       elseif method == "POST" then
         local success, task = pcall(vim.json.decode, body)
         if success and task then
-          vim.schedule(function()
-            M.receive_task(task)
-          end)
+          if not is_duplicate_task(task) then
+            vim.schedule(function()
+              M.receive_task(task)
+            end)
+          end
         end
 
         local response = "HTTP/1.1 200 OK\r\n" ..
@@ -342,11 +367,38 @@ local function handle_client(client)
   end)
 end
 
-function M.start()
-  if #servers > 0 then return true end
-  -- Do not start HTTP server in headless sessions (e.g. background daemons)
-  if #vim.api.nvim_list_uis() == 0 then return false end
+local function get_fuser_ports_str()
+  local fuser_ports = {}
+  for _, port in ipairs(PORTS) do
+    table.insert(fuser_ports, tostring(port) .. "/tcp")
+  end
+  return table.concat(fuser_ports, " ")
+end
 
+local function reclaim_stale_ports(on_complete, force_all)
+  local my_pid = (vim.uv.os_getpid and vim.uv.os_getpid()) or vim.fn.getpid()
+  local parent_pid = (vim.uv.os_getppid and vim.uv.os_getppid()) or 0
+  local force_flag = force_all and "1" or "0"
+  local fuser_ports = get_fuser_ports_str()
+
+  local script = string.format([[
+    for p in $(fuser %s 2>/dev/null); do
+      if [ "$p" != "$1" ] && [ "$p" != "$2" ]; then
+        if [ "$3" = "1" ] || [ "$(cat /proc/$p/comm 2>/dev/null)" = "nvim" ]; then
+          kill -9 "$p" 2>/dev/null
+        fi
+      fi
+    done
+  ]], fuser_ports)
+
+  vim.system({ "sh", "-c", script, "--", tostring(my_pid), tostring(parent_pid), force_flag }, {}, function()
+    if on_complete then
+      vim.schedule(on_complete)
+    end
+  end)
+end
+
+local function try_bind_ports()
   for _, port in ipairs(PORTS) do
     local s = uv.new_tcp()
     local bound, bind_err = s:bind("127.0.0.1", port)
@@ -374,23 +426,151 @@ function M.start()
   return false
 end
 
-function M.restart()
+function M.start(on_ready)
+  if #servers > 0 then
+    if on_ready then on_ready(true, servers) end
+    return true
+  end
+  -- Do not start HTTP server in headless sessions (e.g. background daemons)
+  if #vim.api.nvim_list_uis() == 0 then
+    if on_ready then on_ready(false, {}) end
+    return false
+  end
+
+  if try_bind_ports() then
+    if on_ready then on_ready(true, servers) end
+    return true
+  end
+
+  -- If initial bind failed, reclaim stale ports asynchronously without blocking UI
+  reclaim_stale_ports(function()
+    vim.defer_fn(function()
+      local ok = try_bind_ports()
+      if on_ready then on_ready(ok, servers) end
+    end, 50)
+  end, false)
+
+  return false
+end
+
+function M.restart(on_ready)
   for _, item in ipairs(servers) do
     pcall(function() item.server:close() end)
   end
   servers = {}
   server = nil
-  return M.start()
+
+  -- Fully non-blocking async port reclamation and bind
+  reclaim_stale_ports(function()
+    vim.defer_fn(function()
+      local ok = try_bind_ports()
+      if on_ready then on_ready(ok, servers) end
+    end, 50)
+  end, false)
 end
 
-pcall(vim.api.nvim_create_user_command, "CpRestartServer", function()
-  M.restart()
-  local active_ports = {}
+function M.claim(on_ready)
   for _, item in ipairs(servers) do
+    pcall(function() item.server:close() end)
+  end
+  servers = {}
+  server = nil
+
+  -- Forcefully reclaim ports from any other process and bind to this session
+  reclaim_stale_ports(function()
+    vim.defer_fn(function()
+      local ok = try_bind_ports()
+      local active_ports = {}
+      for _, item in ipairs(servers) do
+        table.insert(active_ports, tostring(item.port))
+      end
+
+      if on_ready then
+        on_ready(ok, servers)
+      else
+        if ok and #active_ports > 0 then
+          vim.notify("🎯 CP ports claimed (" .. table.concat(active_ports, ", ") .. ") for this Neovim session!", vim.log.levels.INFO, { title = "CP Claim", timeout = 1000 })
+        else
+          vim.notify("❌ Failed to claim CP ports (" .. table.concat(PORTS, ", ") .. ").", vim.log.levels.ERROR, { title = "CP Claim", timeout = 4000 })
+        end
+      end
+    end, 60)
+  end, true)
+end
+
+local function notify_server_status(servers_list)
+  servers_list = servers_list or servers
+  local active_ports = {}
+  for _, item in ipairs(servers_list) do
     table.insert(active_ports, tostring(item.port))
   end
-  vim.notify("CPH server listening on port(s): " .. table.concat(active_ports, ", "), vim.log.levels.INFO, { title = "CPH Server" })
-end, { desc = "Restart local CPH HTTP server" })
+  if #active_ports > 0 then
+    vim.notify("✅ CPH server listening on port(s): " .. table.concat(active_ports, ", "), vim.log.levels.INFO, { title = "CPH Server", timeout = 1000 })
+  else
+    vim.notify("❌ CPH server failed to bind to ports (" .. table.concat(PORTS, ", ") .. "). Ports are in use.", vim.log.levels.ERROR, { title = "CPH Server", timeout = 4000 })
+  end
+end
+
+local cp_subcommands = {
+  claim = function()
+    M.claim()
+  end,
+  restart = function()
+    M.restart(function(_, current_servers)
+      notify_server_status(current_servers)
+    end)
+  end,
+  status = function()
+    notify_server_status(servers)
+  end,
+}
+
+local function cp_cmd_handler(opts)
+  local arg = vim.trim(opts.args or ""):lower()
+  if arg == "claim" then
+    cp_subcommands.claim()
+  elseif arg == "restart" then
+    cp_subcommands.restart()
+  elseif arg == "status" or arg == "" then
+    cp_subcommands.status()
+  else
+    vim.notify("Unknown CP subcommand: " .. arg .. "\nUsage: :Cp claim | restart | status", vim.log.levels.WARN, { title = "CP" })
+  end
+end
+
+local function cp_complete(_, line)
+  local parts = vim.split(line, "%s+")
+  local candidates = { "claim", "restart", "status" }
+  if #parts <= 2 then
+    local prefix = (parts[2] or ""):lower()
+    return vim.tbl_filter(function(item)
+      return item:sub(1, #prefix) == prefix
+    end, candidates)
+  end
+  return {}
+end
+
+for _, cmd in ipairs({ "Cp", "CP" }) do
+  pcall(vim.api.nvim_create_user_command, cmd, cp_cmd_handler, {
+    nargs = "?",
+    complete = cp_complete,
+    desc = "Competitive Programming server management (:Cp claim | restart | status)",
+  })
+end
+
+for _, cmd in ipairs({ "CpClaim", "CPClaim" }) do
+  pcall(vim.api.nvim_create_user_command, cmd, function()
+    M.claim()
+  end, { desc = "Claim CP ports for this Neovim session" })
+end
+
+for _, cmd_name in ipairs({ "CpRestartServer", "CPRestartServer", "CpRestart", "CPRestart" }) do
+  pcall(vim.api.nvim_create_user_command, cmd_name, function()
+    M.restart(function(_, current_servers)
+      notify_server_status(current_servers)
+    end)
+  end, { desc = "Restart local CPH HTTP server (non-blocking)" })
+end
 
 function M.comment_dbg(filepath)
   local bufnr = vim.fn.bufnr(filepath)
@@ -511,20 +691,40 @@ function M.clear_asan_errors(bufnr)
   end
 end
 
+pcall(vim.api.nvim_set_hl, 0, "CphAsanErrorLine", { bg = "#5a151b", bold = true, default = true })
+
 function M.highlight_asan_errors(filepath, err_output, testcase_idx)
-  local bufnr = vim.fn.bufnr(filepath)
+  local norm_path = vim.fs.normalize(filepath)
+  local bufnr = vim.fn.bufnr(norm_path)
+  if bufnr == -1 then bufnr = vim.fn.bufnr(filepath) end
+  if bufnr == -1 then
+    local target_tail = vim.fs.basename(norm_path)
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+      local bname = vim.api.nvim_buf_get_name(b)
+      if bname ~= "" and (vim.fs.normalize(bname) == norm_path or vim.fs.basename(bname) == target_tail) then
+        bufnr = b
+        break
+      end
+    end
+  end
+  if bufnr == -1 then
+    bufnr = vim.fn.bufadd(norm_path)
+  end
   if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) then
     return
+  end
+  if not vim.api.nvim_buf_is_loaded(bufnr) then
+    vim.fn.bufload(bufnr)
   end
 
   M.clear_asan_errors(bufnr)
 
-  local filename = vim.fn.fnamemodify(filepath, ":t")
+  local filename = vim.fs.basename(norm_path)
   local errors = {}
   local seen_lines = {}
 
   -- 1. Check UBSan runtime errors: "path/file.cpp:5:9: runtime error: ..."
-  for file, line, col, msg in err_output:gmatch("([^\r\n:]+):(%d+):(%d+):%s*runtime error:%s*([^\r\n]+)") do
+  for file, line, col, msg in err_output:gmatch("([^\r\n:]+):(%d+):?(%d*):?%s*runtime error:%s*([^\r\n]+)") do
     if file:find(filename, 1, true) then
       local lnum = tonumber(line)
       if lnum and not seen_lines[lnum] then
@@ -547,7 +747,7 @@ function M.highlight_asan_errors(filepath, err_output, testcase_idx)
 
   -- 3. Check stack frames: "#0 0x... in solve() /path/file.cpp:6"
   local top_reason = err_output:match("ERROR:%s*AddressSanitizer:%s*([%w%-_]+)") or "Sanitizer Error"
-  for func, file, line in err_output:gmatch("in%s+([%w_]+)%s*%b()%s+([^\r\n:]+):(%d+)") do
+  for func, file, line in err_output:gmatch("in%s+(.-)%s+([^\r\n%s:]+):(%d+)") do
     if file:find(filename, 1, true) then
       local lnum = tonumber(line)
       if lnum and not seen_lines[lnum] then
@@ -557,8 +757,8 @@ function M.highlight_asan_errors(filepath, err_output, testcase_idx)
     end
   end
 
+  -- 4. Fallback: check any pattern "filename:line" in err_output
   if #errors == 0 then
-    -- Fallback: check any pattern "filename:line" in err_output
     for line in err_output:gmatch(vim.pesc(filename) .. ":(%d+)") do
       local lnum = tonumber(line)
       if lnum and not seen_lines[lnum] then
@@ -573,12 +773,14 @@ function M.highlight_asan_errors(filepath, err_output, testcase_idx)
 
   for _, err in ipairs(errors) do
     if err.line >= 1 and err.line <= line_count then
-      -- Red line background highlight + Red virtual comment at end of line
+      -- Vibrant red line background highlight + Gutter sign + Virtual text at EOL
       pcall(vim.api.nvim_buf_set_extmark, bufnr, asan_ns, err.line - 1, 0, {
-        line_hl_group = "DiffDelete",
-        virt_text = { { "  // 🚨 " .. err.message, "DiagnosticError" } },
+        line_hl_group = "CphAsanErrorLine",
+        sign_text = "🚨",
+        sign_hl_group = "DiagnosticError",
+        virt_text = { { string.format("  // 🚨 %s (Sample #%s)", err.message, tostring(testcase_idx or 1)), "DiagnosticError" } },
         virt_text_pos = "eol",
-        priority = 5000,
+        priority = 10000,
       })
 
       table.insert(diags, {
@@ -586,15 +788,38 @@ function M.highlight_asan_errors(filepath, err_output, testcase_idx)
         col = (err.col or 1) - 1,
         severity = vim.diagnostic.severity.ERROR,
         source = "Sanitizer",
-        message = string.format("Sample #%d: %s", testcase_idx, err.message),
+        message = string.format("Sample #%d: %s", testcase_idx or 1, err.message),
       })
     end
   end
 
   if #diags > 0 then
     pcall(vim.diagnostic.set, asan_ns, bufnr, diags)
-    -- Jump window cursor directly to the first offending line
-    pcall(vim.api.nvim_win_set_cursor, 0, { errors[1].line, (errors[1].col or 1) - 1 })
+
+    -- Focus the buffer window and jump directly to the offending line
+    local target_win = nil
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == bufnr then
+        target_win = win
+        break
+      end
+    end
+
+    if target_win then
+      pcall(vim.api.nvim_set_current_win, target_win)
+      pcall(vim.api.nvim_win_set_cursor, target_win, { errors[1].line, (errors[1].col or 1) - 1 })
+      pcall(vim.cmd, "normal! zz")
+    else
+      for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if vim.api.nvim_win_is_valid(win) and vim.bo[vim.api.nvim_win_get_buf(win)].buftype == "" then
+          pcall(vim.api.nvim_win_set_buf, win, bufnr)
+          pcall(vim.api.nvim_set_current_win, win)
+          pcall(vim.api.nvim_win_set_cursor, win, { errors[1].line, (errors[1].col or 1) - 1 })
+          pcall(vim.cmd, "normal! zz")
+          break
+        end
+      end
+    end
   end
 
   -- Auto-clear red marks as soon as the user starts editing
@@ -614,7 +839,7 @@ function M.submit(url, filepath)
   -- Comment all dbg statements
   local dbg_count = M.comment_dbg(filepath)
   if dbg_count > 0 then
-    vim.notify(string.format("Commented out %d dbg statement(s)", dbg_count), vim.log.levels.INFO, { title = "Submit", timeout = 1500 })
+    vim.notify(string.format("Commented out %d dbg statement(s)", dbg_count), vim.log.levels.INFO, { title = "Submit", timeout = 1000 })
   end
 
   -- 1. Fast Syntax Check
@@ -728,7 +953,7 @@ function M.submit(url, filepath)
 
             if platform == "Codeforces" or platform == "CSES" or platform == "AlgoZenith" then
               if platform == "Codeforces" then
-                vim.notify("Opening Codeforces submission in browser via cph-submit...", vim.log.levels.INFO, { title = "Submit", timeout = 2500 })
+                vim.notify("Opening Codeforces submission in browser via cph-submit...", vim.log.levels.INFO, { title = "Submit", timeout = 1000 })
                 if vim.ui and vim.ui.open then
                   vim.ui.open(url)
                 else
@@ -737,7 +962,7 @@ function M.submit(url, filepath)
               end
             else
               -- AtCoder, CodeChef, LeetCode, and other platforms:
-              vim.notify(string.format("✅ %s: Opening submission page in browser...", platform), vim.log.levels.INFO, { title = "Submit", timeout = 2500 })
+              vim.notify(string.format("✅ %s: Opening submission page in browser...", platform), vim.log.levels.INFO, { title = "Submit", timeout = 1000 })
               if vim.ui and vim.ui.open then
                 vim.ui.open(url)
               else
@@ -750,12 +975,12 @@ function M.submit(url, filepath)
           if platform == "Codeforces" then
             local cf_cookie = require("config.cf_cookie_submit")
             if cf_cookie.is_cookie_allowed() then
-              vim.notify("Submitting solution to Codeforces...", vim.log.levels.INFO, { title = "Codeforces Submit", timeout = 2000 })
+              vim.notify("Submitting solution to Codeforces...", vim.log.levels.INFO, { title = "Codeforces Submit", timeout = 1000 })
               cf_cookie.submit(url, filepath, function(ok, result_or_err)
                 if ok then
                   local p_idx = type(result_or_err) == "table" and result_or_err.problem_index
                   local p_str = p_idx and (" " .. p_idx) or ""
-                  vim.notify(string.format("✅ Codeforces: Problem%s submitted successfully!", p_str), vim.log.levels.INFO, { title = "Codeforces Submit", timeout = 2000 })
+                  vim.notify(string.format("✅ Codeforces: Problem%s submitted successfully!", p_str), vim.log.levels.INFO, { title = "Codeforces Submit", timeout = 1000 })
                 else
                   if result_or_err == "not_logged_in" then
                     -- User was notified and login page was opened in default browser
@@ -763,10 +988,10 @@ function M.submit(url, filepath)
                   end
                   local bname = (package.loaded["config.cf_cookie_submit"] and package.loaded["config.cf_cookie_submit"].last_detected_browser) or "default browser"
                   if result_or_err == "chromium_keyring_locked" then
-                    vim.notify(string.format("ℹ️ Submitting in %s via cph-submit...", bname), vim.log.levels.INFO, { title = "Codeforces Submit", timeout = 2500 })
+                    vim.notify(string.format("ℹ️ Submitting in %s via cph-submit...", bname), vim.log.levels.INFO, { title = "Codeforces Submit", timeout = 1000 })
                   else
                     local reason = type(result_or_err) == "string" and result_or_err or "Submission failed"
-                    vim.notify(string.format("⚠️ Headless cookie submit unavailable (%s). Submitting in %s...", reason, bname), vim.log.levels.WARN, { title = "Codeforces Submit", timeout = 3000 })
+                    vim.notify(string.format("⚠️ Headless cookie submit unavailable (%s). Submitting in %s...", reason, bname), vim.log.levels.WARN, { title = "Codeforces Submit", timeout = 1000 })
                   end
                   fallback_browser_submit()
                 end
