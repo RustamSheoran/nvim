@@ -102,8 +102,8 @@ echo ""
     debug_cmd = string.format([[
 cd '%s' && bash -c '
 ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
-echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG) ===\033[0m"
-g++ -O2 -std=c++17 %s-DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
+echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG -D_GLIBCXX_ASSERTIONS) ===\033[0m"
+g++ -O2 -std=c++17 %s-DLOCAL -DDEBUG -D_GLIBCXX_ASSERTIONS "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
 
 %s
 echo -e "\033[1;34m==================================================\033[0m"
@@ -122,8 +122,8 @@ fi
     debug_cmd = string.format([[
 cd '%s' && bash -c '
 ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
-echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG) ===\033[0m"
-g++ -O2 -std=c++17 %s-DLOCAL -DDEBUG "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
+echo -e "\033[1;34m=== COMPILING %s (with -DLOCAL -DDEBUG -D_GLIBCXX_ASSERTIONS) ===\033[0m"
+g++ -O2 -std=c++17 %s-DLOCAL -DDEBUG -D_GLIBCXX_ASSERTIONS "%s" -o __debug || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
 
 echo -e "\033[1;32m=== INTERACTIVE RUN (./__debug) ===\033[0m"
 echo -e "\033[0;36mType / paste input and press Enter (Ctrl+D for EOF, Ctrl+C to stop):\033[0m"

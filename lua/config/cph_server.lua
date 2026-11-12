@@ -858,6 +858,7 @@ function M.submit(url, filepath)
       table.insert(asan_cmd, "-fuse-ld=mold")
     end
     table.insert(asan_cmd, "-fsanitize=address,undefined")
+    table.insert(asan_cmd, "-fno-omit-frame-pointer")
     table.insert(asan_cmd, "-g")
     table.insert(asan_cmd, filepath)
     table.insert(asan_cmd, "-o")
@@ -952,17 +953,22 @@ function M.submit(url, filepath)
             M.start()
 
             if platform == "Codeforces" or platform == "CSES" or platform == "AlgoZenith" then
-              if platform == "Codeforces" then
-                vim.notify("Opening Codeforces submission in browser via cph-submit...", vim.log.levels.INFO, { title = "Submit", timeout = 1000 })
-                if vim.ui and vim.ui.open then
-                  vim.ui.open(url)
-                else
-                  vim.system({ "xdg-open", url }, { detach = true })
+              vim.notify(string.format("🚀 Submitting %s solution via cph-submit...", platform), vim.log.levels.INFO, { title = "Submit", timeout = 1000 })
+              -- Safety fallback: if cph-submit browser extension does not claim payload within 4s, open in browser
+              local sub_url = url
+              vim.defer_fn(function()
+                if current_payload and current_payload_platform == platform then
+                  vim.notify("Opening submission page in browser...", vim.log.levels.INFO, { title = "Submit", timeout = 1000 })
+                  if vim.ui and vim.ui.open then
+                    vim.ui.open(sub_url)
+                  else
+                    vim.system({ "xdg-open", sub_url }, { detach = true })
+                  end
                 end
-              end
+              end, 4000)
             else
-              -- AtCoder, CodeChef, LeetCode, and other platforms:
-              vim.notify(string.format("✅ %s: Opening submission page in browser...", platform), vim.log.levels.INFO, { title = "Submit", timeout = 1000 })
+              -- AtCoder, CodeChef, LeetCode, and other platforms not supported by cph-submit:
+              vim.notify(string.format("✅ %s: Solution copied to clipboard. Opening submission page...", platform), vim.log.levels.INFO, { title = "Submit", timeout = 1000 })
               if vim.ui and vim.ui.open then
                 vim.ui.open(url)
               else
@@ -1021,7 +1027,14 @@ function M.submit(url, filepath)
           return
         end
 
-        vim.system({ asan_bin }, { stdin = tc_list[index], text = true }, function(run_obj)
+        vim.system({ asan_bin }, {
+          stdin = tc_list[index],
+          text = true,
+          env = {
+            ASAN_OPTIONS = "handle_abort=1:detect_leaks=1",
+            UBSAN_OPTIONS = "print_stacktrace=1:halt_on_error=1",
+          },
+        }, function(run_obj)
           local err_output = (run_obj.stderr or "") .. (run_obj.stdout or "")
           local has_asan_err = run_obj.code ~= 0
             or err_output:find("AddressSanitizer")

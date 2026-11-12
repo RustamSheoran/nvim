@@ -126,7 +126,7 @@ return {
       cpp = {
         exec = "g++",
         args = (function()
-          local args = { "-O2", "-std=c++17" }
+          local args = { "-O2", "-std=c++17", "-D_GLIBCXX_ASSERTIONS" }
           if vim.fn.executable("mold") == 1 and (vim.uv or vim.loop).os_uname().sysname == "Linux" then
             table.insert(args, "-fuse-ld=mold")
           end
@@ -305,32 +305,141 @@ return {
         vim.cmd("silent! write")
         local dir = vim.fn.fnamemodify(file, ":h")
         local sol_name = vim.fn.fnamemodify(file, ":t")
-        local san_cmd = string.format([[
-cd '%s' && bash -c '
-ulimit -s 262144 2>/dev/null
-echo -e "\033[1;34m=== COMPILING WITH ADDRESS & UNDEFINED BEHAVIOR SANITIZERS ===\033[0m"
-g++ -O2 -std=c++17 -fsanitize=address,undefined -g "%s" -o __san || { read -p "Compilation failed! Press Enter..." dummy; exit 1; }
+        local stem = vim.fn.fnamemodify(file, ":r")
+        local meta_file = stem .. ".meta.json"
+        local tc_file = stem .. ".testcases"
 
-echo -e "\033[1;32m=== RUNNING WITH SANITIZERS (Catches Out-of-Bounds & UB) ===\033[0m"
-if [ -f __debug_in.txt ]; then
-    ./__san < __debug_in.txt
-elif [ -f __tc_in_1.txt ]; then
-    ./__san < __tc_in_1.txt
-else
-    echo -e "\033[0;36mType / paste input and press Enter:\033[0m"
-    ./__san
-fi
+        -- Collect testcases: check exact .meta.json, any .meta.json in dir, or .testcases
+        local tc_list = {}
+        local meta_candidates = { meta_file }
+        for _, f in ipairs(vim.fn.glob(dir .. "/*.meta.json", false, true)) do
+          if f ~= meta_file then
+            table.insert(meta_candidates, f)
+          end
+        end
+
+        for _, mf in ipairs(meta_candidates) do
+          if #tc_list == 0 and vim.fn.filereadable(mf) == 1 then
+            pcall(function()
+              local lines = vim.fn.readfile(mf)
+              local ok_dec, data = pcall(vim.json.decode, table.concat(lines, "\n"))
+              if ok_dec and type(data) == "table" and data.tests then
+                for _, t in ipairs(data.tests) do
+                  if t.input and t.input ~= "" then
+                    table.insert(tc_list, { input = t.input, output = t.output or "" })
+                  end
+                end
+              end
+            end)
+          end
+        end
+
+        if #tc_list == 0 then
+          local tc_candidates = { tc_file }
+          for _, f in ipairs(vim.fn.glob(dir .. "/*.testcases", false, true)) do
+            if f ~= tc_file then
+              table.insert(tc_candidates, f)
+            end
+          end
+          for _, tf in ipairs(tc_candidates) do
+            if #tc_list == 0 and vim.fn.filereadable(tf) == 1 then
+              pcall(function()
+                local tctbl = require("competitest.testcases").single_file.load(tf)
+                local keys = {}
+                for k in pairs(tctbl) do table.insert(keys, k) end
+                table.sort(keys)
+                for _, k in ipairs(keys) do
+                  if tctbl[k] and tctbl[k].input and tctbl[k].input ~= "" then
+                    table.insert(tc_list, { input = tctbl[k].input, output = tctbl[k].output or "" })
+                  end
+                end
+              end)
+            end
+          end
+        end
+
+        local mold_flag = (vim.fn.executable("mold") == 1 and (vim.uv or vim.loop).os_uname().sysname == "Linux") and "-fuse-ld=mold " or ""
+        local san_cmd = ""
+
+        if #tc_list > 0 then
+          local commands = {}
+          for i, tc in ipairs(tc_list) do
+            local in_name = string.format("__tc_in_%d.txt", i)
+            local f = io.open(dir .. "/" .. in_name, "w")
+            if f then
+              f:write(tc.input)
+              f:close()
+            end
+            table.insert(commands, string.format([[
+echo -e "\033[1;36m=================================================="
+echo -e "📋 SAMPLE TESTCASE #%d (Address & UB Sanitizers)"
+echo -e "==================================================\033[0m"
+echo -e "\033[1;33m--- INPUT ---\033[0m"
+cat '%s'
 echo ""
-read -p "Sanitizer run complete. Press Enter to close..." dummy
+echo -e "\033[1;32m--- OUTPUT & SANITIZER REPORT ---\033[0m"
+./__san < '%s' || true
+echo ""
+]], i, in_name, in_name))
+          end
+
+          local run_cases_bash = table.concat(commands, "\n")
+          san_cmd = string.format([[
+cd '%s' && bash -c '
+ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
+export ASAN_OPTIONS="handle_abort=1:detect_leaks=1:color=always"
+export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1:color=always"
+echo -e "\033[1;34m=== COMPILING WITH ASAN & UBSAN ===\033[0m"
+g++ -O2 -std=c++17 %s-fsanitize=address,undefined -fno-omit-frame-pointer -g "%s" -o __san || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
+
+%s
+echo -e "\033[1;34m==================================================\033[0m"
+echo -e "\033[1;32mAll %d sample testcase(s) finished.\033[0m"
+read -p "Press '\''i'\'' to test custom/interactive input, or Enter to close: " choice
+if [ "$choice" = "i" ] || [ "$choice" = "I" ]; then
+    echo -e "\033[1;32m=== INTERACTIVE RUN (./__san) ===\033[0m"
+    echo -e "\033[0;36mType / paste input below, then press Enter and Ctrl+D (EOF):\033[0m"
+    ./__san || true
+    echo ""
+    echo -e "\033[1;33m--------------------------------------------------\033[0m"
+    read -p "Run complete. Press Enter to close window..." dummy
+fi
 '
-]], dir, sol_name)
+]], dir, mold_flag, sol_name, run_cases_bash, #tc_list)
+        else
+          san_cmd = string.format([[
+cd '%s' && bash -c '
+ulimit -s 262144 2>/dev/null || ulimit -s 65520 2>/dev/null || true
+export ASAN_OPTIONS="handle_abort=1:detect_leaks=1:color=always"
+export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1:color=always"
+echo -e "\033[1;34m=== COMPILING WITH ASAN & UBSAN ===\033[0m"
+g++ -O2 -std=c++17 %s-fsanitize=address,undefined -fno-omit-frame-pointer -g "%s" -o __san || { echo -e "\033[1;31mCompilation failed!\033[0m"; read -p "Press Enter to exit..." dummy; exit 1; }
+
+echo -e "\033[1;32m=== INTERACTIVE RUN WITH SANITIZERS (Catches Out-of-Bounds & UB) ===\033[0m"
+echo -e "\033[0;36mType / paste input below, then press Enter and Ctrl+D (EOF):\033[0m"
+./__san || true
+echo ""
+echo -e "\033[1;33m--------------------------------------------------\033[0m"
+read -p "Run complete. Press Enter to close window..." dummy
+'
+]], dir, mold_flag, sol_name)
+        end
+
         if Snacks and Snacks.terminal then
-          Snacks.terminal.open(san_cmd, { cwd = dir })
+          Snacks.terminal.open(san_cmd, {
+            cwd = dir,
+            auto_close = false,
+            win = {
+              on_buf = function(self)
+                vim.keymap.set("n", "q", function() self:close() end, { buffer = self.buf, silent = true, desc = "Close terminal" })
+              end,
+            },
+          })
         else
           vim.cmd("botright 15split | terminal " .. san_cmd)
         end
       end,
-      desc = "Run with AddressSanitizer (catch segfaults / out-of-bounds)",
+      desc = "Run with ASan & UBSan (catches out-of-bounds / segfaults)",
     },
     {
       "<leader>rs",
@@ -458,6 +567,20 @@ read -p "Sanitizer run complete. Press Enter to close..." dummy
         require("config.cf_cookie_submit").toggle_cookie_allowed()
       end,
       desc = "Toggle Headless Cookie Submit (Global Privacy Consent)",
+    },
+    {
+      "<leader>rn",
+      function()
+        require("config.cf_cookie_submit").fetch_new_cookies()
+      end,
+      desc = "Get / verify fresh Codeforces cookies (never cached)",
+    },
+    {
+      "<leader>ro",
+      function()
+        require("config.cf_cookie_submit").fetch_new_cookies()
+      end,
+      desc = "Get / verify fresh Codeforces cookies (never cached)",
     },
     {
       "<leader>rh",

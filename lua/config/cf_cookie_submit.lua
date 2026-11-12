@@ -559,6 +559,7 @@ function M.submit(url, filepath, callback)
 
   vim.system(get_cmd, { text = true }, function(get_obj)
     if get_obj.code ~= 0 or not get_obj.stdout or get_obj.stdout == "" then
+      pcall(vim.fn.delete, jar_path)
       vim.schedule(function()
         callback(false, "failed_to_reach_codeforces")
       end)
@@ -569,6 +570,7 @@ function M.submit(url, filepath, callback)
 
     -- Check for Cloudflare challenge
     if html:find("Just a moment...") or html:find("challenge%-error%-text") or html:find("cf%-mitigated") then
+      pcall(vim.fn.delete, jar_path)
       vim.schedule(function()
         callback(false, "cloudflare_challenge")
       end)
@@ -578,6 +580,7 @@ function M.submit(url, filepath, callback)
     -- Verify Login Status: look for authenticated handle
     local handle = html:match('handle%s*=%s*"([^"]+)"')
     if not handle or handle == "" or (html:find('href="/enter"') and not html:find('href="/logout"')) then
+      pcall(vim.fn.delete, jar_path)
       vim.schedule(function()
         vim.notify("⚠️ Not logged in to Codeforces. Opening login page in browser...", vim.log.levels.WARN, { title = "Codeforces Login" })
         open_url_in_browser("https://codeforces.com/enter")
@@ -593,6 +596,7 @@ function M.submit(url, filepath, callback)
       or html:match('name="csrf_token"%s+value="([a-f0-9]+)"')
 
     if not csrf or csrf == "" then
+      pcall(vim.fn.delete, jar_path)
       vim.schedule(function()
         callback(false, "csrf_token_not_found")
       end)
@@ -603,6 +607,7 @@ function M.submit(url, filepath, callback)
     -- (Prevents "You have submitted exactly the same code before" rejection)
     local f = io.open(filepath, "r")
     if not f then
+      pcall(vim.fn.delete, jar_path)
       vim.schedule(function()
         callback(false, "cannot_read_source_file")
       end)
@@ -615,6 +620,7 @@ function M.submit(url, filepath, callback)
     local temp_src = string.format("/tmp/__cf_sub_%s_%s_%d.cpp", contest_id, problem_index, os.time())
     local tf = io.open(temp_src, "w")
     if not tf then
+      pcall(vim.fn.delete, jar_path)
       vim.schedule(function()
         callback(false, "cannot_write_temp_submission_file")
       end)
@@ -645,6 +651,7 @@ function M.submit(url, filepath, callback)
 
     vim.system(post_cmd, { text = true }, function(post_obj)
       pcall(vim.fn.delete, temp_src)
+      pcall(vim.fn.delete, jar_path)
 
       local post_resp = post_obj.stdout or ""
 
@@ -672,6 +679,66 @@ function M.submit(url, filepath, callback)
           callback(false, err_msg or "codeforces_submission_rejected")
         end
       end)
+    end)
+  end)
+end
+
+-- ==============================================================================
+-- Live Cookie Refresh & Verification (Never Cached, Always Fresh)
+-- ==============================================================================
+function M.fetch_new_cookies(callback)
+  if not M.is_cookie_allowed() then
+    vim.notify("Cookie submission is currently disabled. Enable it with <leader>rk.", vim.log.levels.WARN, { title = "Codeforces Cookies" })
+    return
+  end
+
+  local cookie_db = M.find_cookie_database()
+  local browser_label = M.last_detected_browser or "default browser"
+  if not cookie_db then
+    vim.notify("⚠️ No browser cookie database found. Opening login page in browser...", vim.log.levels.WARN, { title = "Codeforces Cookies" })
+    open_url_in_browser("https://codeforces.com/enter")
+    return
+  end
+
+  local username = vim.env.USER or "cf_user"
+  local jar_path = string.format("/tmp/cf_fresh_jar_%s_%d.txt", username, os.time())
+  local export_ok, export_err = M.export_cookie_jar(cookie_db, jar_path)
+
+  if not export_ok then
+    pcall(vim.fn.delete, jar_path)
+    if export_err == "chromium_keyring_locked" then
+      vim.notify(string.format("ℹ️ %s cookies are encrypted by OS keyring.\nSubmissions will seamlessly submit via cph-submit in %s.", browser_label, browser_label), vim.log.levels.INFO, { title = "Codeforces Cookies" })
+    else
+      vim.notify(string.format("⚠️ Could not extract cookies from %s: %s\nOpening login page in browser...", browser_label, export_err or "unknown"), vim.log.levels.WARN, { title = "Codeforces Cookies" })
+      open_url_in_browser("https://codeforces.com/enter")
+    end
+    return
+  end
+
+  vim.notify(string.format("🔄 Checking live Codeforces session from %s...", browser_label), vim.log.levels.INFO, { title = "Codeforces Cookies", timeout = 1000 })
+
+  local ua = get_user_agent()
+  local get_cmd = {
+    "curl", "-s",
+    "-A", ua,
+    "-b", jar_path,
+    "https://codeforces.com",
+  }
+
+  vim.system(get_cmd, { text = true }, function(obj)
+    -- Immediately destroy temporary cookie jar from disk
+    pcall(vim.fn.delete, jar_path)
+    local html = (obj and obj.stdout) or ""
+    local handle = html:match('handle%s*=%s*"([^"]+)"')
+    vim.schedule(function()
+      if handle and handle ~= "" then
+        vim.notify(string.format("✅ Fresh Codeforces session verified!\nLogged in as: %s (via %s)\n(Zero cached: extracted live from browser)", handle, browser_label), vim.log.levels.INFO, { title = "Codeforces Cookies", timeout = 3000 })
+        if callback then callback(true, handle) end
+      else
+        vim.notify(string.format("⚠️ Not logged in to Codeforces in %s.\nOpening login page in browser...", browser_label), vim.log.levels.WARN, { title = "Codeforces Cookies" })
+        open_url_in_browser("https://codeforces.com/enter")
+        if callback then callback(false, "not_logged_in") end
+      end
     end)
   end)
 end
