@@ -205,6 +205,6 @@ local function open_snippets_picker()
   })
 end
 
-vim.keymap.set("n", "<leader>rt", open_snippets_picker, { desc = "Browse & Insert CP Snippets" })
-vim.keymap.set("n", "rt", open_snippets_picker, { desc = "Browse & Insert CP Snippets" })
-vim.keymap.set("n", "<leader>sp", open_snippets_picker, { desc = "Browse & Insert CP Snippets" })
+vim.keymap.set("n", "<leader>rt", open_snippets_picker, { desc = "CP Snippets" })
+vim.keymap.set("n", "rt", open_snippets_picker, { desc = "CP Snippets" })
+vim.keymap.set("n", "<leader>sp", open_snippets_picker, { desc = "CP Snippets" })

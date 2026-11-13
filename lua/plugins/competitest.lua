@@ -232,7 +232,7 @@ return {
   end,
   keys = {
     { "<leader>rr", "<cmd>CompetiTest run<cr>", desc = "Run Testcases" },
-    { "<leader>rp", "<cmd>Cp claim<cr>", desc = "Claim Problem Receiver Server" },
+    { "<leader>rp", "<cmd>Cp claim<cr>", desc = "Claim CP Server" },
     { "<leader>ra", "<cmd>CompetiTest add_testcase<cr>", desc = "Add Testcase" },
     { "<leader>re", "<cmd>CompetiTest edit_testcase<cr>", desc = "Edit Testcase" },
     { "<leader>rd", "<cmd>CompetiTest delete_testcase<cr>", desc = "Delete Testcase" },
@@ -241,28 +241,28 @@ return {
       function()
         require("config.debug_runner").run()
       end,
-      desc = "Run Local Debug (-DLOCAL -DDEBUG)",
+      desc = "Debug Run",
     },
     {
       "<leader>rb",
       function()
         require("config.stress").run()
       end,
-      desc = "Run Stress Test (sol vs brute)",
+      desc = "Stress Test",
     },
     {
       "<leader>rw",
       function()
         require("config.stress").open_brute()
       end,
-      desc = "Create/open brute-force template",
+      desc = "Brute Template",
     },
     {
       "<leader>rg",
       function()
         require("config.stress").open_gen()
       end,
-      desc = "Create/open random-test generator",
+      desc = "Gen Template",
     },
     {
       "<leader>ru",
@@ -292,7 +292,7 @@ return {
         end
         vim.notify("No problem URL found for this problem!", vim.log.levels.WARN)
       end,
-      desc = "Open problem URL in browser",
+      desc = "Open Problem URL",
     },
     {
       "<leader>rz",
@@ -439,7 +439,7 @@ read -p "Run complete. Press Enter to close window..." dummy
           vim.cmd("botright 15split | terminal " .. san_cmd)
         end
       end,
-      desc = "Run with ASan & UBSan (catches out-of-bounds / segfaults)",
+      desc = "Sanitizer Run",
     },
     {
       "<leader>rs",
@@ -543,14 +543,14 @@ read -p "Run complete. Press Enter to close window..." dummy
           end
         end)
       end,
-      desc = "Verify compilation, comment dbg, and submit via cph-submit",
+      desc = "Submit Solution",
     },
     {
       "<leader>rl",
       function()
         require("config.codeforces").show_contest_list()
       end,
-      desc = "Codeforces Contest Problems, Solve Counts & Live Rank",
+      desc = "CF Standings",
     },
     {
       "<leader>rc",
@@ -559,42 +559,35 @@ read -p "Run complete. Press Enter to close window..." dummy
         local count = require("config.cph_server").toggle_dbg(filepath)
         vim.notify(string.format("Toggled %d dbg statement(s)", count), vim.log.levels.INFO, { title = "Debug" })
       end,
-      desc = "Toggle all dbg statements in buffer",
+      desc = "Toggle dbg",
     },
     {
       "<leader>rk",
       function()
         require("config.cf_cookie_submit").toggle_cookie_allowed()
       end,
-      desc = "Toggle Headless Cookie Submit (Global Privacy Consent)",
+      desc = "Toggle Cookies",
     },
     {
       "<leader>rn",
       function()
         require("config.cf_cookie_submit").fetch_new_cookies()
       end,
-      desc = "Get / verify fresh Codeforces cookies (never cached)",
-    },
-    {
-      "<leader>ro",
-      function()
-        require("config.cf_cookie_submit").fetch_new_cookies()
-      end,
-      desc = "Get / verify fresh Codeforces cookies (never cached)",
+      desc = "Refresh Cookies",
     },
     {
       "<leader>rh",
       function()
         require("config.cp_health").check()
       end,
-      desc = "Pre-Contest Environment Health Check (GCC, Mold, PCH, Stack)",
+      desc = "CP Health Check",
     },
     {
       "<leader>rf",
       function()
         require("config.file_runner").run()
       end,
-      desc = "File Runner: Pick input file & run with redirection",
+      desc = "File Runner",
     },
   },
 }
