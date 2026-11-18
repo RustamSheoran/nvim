@@ -113,11 +113,77 @@ end
 
 vim.keymap.set("n", "<leader>to", copilot_logout, { desc = "Copilot Logout (Sign Out)" })
 
+-- ==================== Auto-Format on Save Flip Switch (<leader>tf) ====================
+-- Strictly global toggle: controls vim.g.autoformat for all files and buffers.
+-- Disables any buffer-local override completely. Only a single lowercase key is kept.
+local function clear_buffer_autoformat()
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(buf) then
+      vim.b[buf].autoformat = nil
+    end
+  end
+end
+
+-- Ensure newly opened buffers never carry a buffer-local override
+vim.api.nvim_create_autocmd({ "BufReadPre", "BufNewFile" }, {
+  group = vim.api.nvim_create_augroup("GlobalAutoFormatOnly", { clear = true }),
+  callback = function(args)
+    vim.b[args.buf].autoformat = nil
+  end,
+})
+
+-- Remove all uppercase F format keymaps (no duplicate or buffer toggles)
+pcall(vim.keymap.del, "n", "<leader>tF")
+pcall(vim.keymap.del, "n", "<leader>uF")
+
+local function toggle_global_format()
+  local new_val = not (vim.g.autoformat == true)
+  vim.g.autoformat = new_val
+  clear_buffer_autoformat()
+  if new_val then
+    vim.notify("Auto-format on save: ON", vim.log.levels.INFO, { title = "Format Flip" })
+  else
+    vim.notify("Auto-format on save: OFF", vim.log.levels.WARN, { title = "Format Flip" })
+  end
+  return new_val
+end
+
+if Snacks and Snacks.toggle then
+  local format_toggle = Snacks.toggle({
+    name = "Format on Save",
+    get = function()
+      return vim.g.autoformat == true
+    end,
+    set = function(state)
+      vim.g.autoformat = state
+      clear_buffer_autoformat()
+    end,
+  })
+
+  -- Only single lowercase toggle key
+  format_toggle:map("<leader>tf")
+  format_toggle:map("<leader>uf")
+else
+  vim.keymap.set("n", "<leader>tf", toggle_global_format, { desc = "Toggle Format on Save" })
+  vim.keymap.set("n", "<leader>uf", toggle_global_format, { desc = "Toggle Format on Save" })
+end
+
+-- Global toggle command
+vim.api.nvim_create_user_command("FormatToggle", toggle_global_format, { desc = "Toggle auto-format on save globally" })
+
+vim.api.nvim_create_user_command("Format", function()
+  if LazyVim and LazyVim.format then
+    LazyVim.format({ force = true })
+  else
+    pcall(require("conform").format, { force = true })
+  end
+end, { desc = "Format current buffer on demand" })
+
 -- Register WhichKey group description
 pcall(function()
   local wk = require("which-key")
   wk.add({
-    { "<leader>t", group = "Contest / Copilot" },
+    { "<leader>t", group = "Toggles / Copilot" },
   })
 end)
 
